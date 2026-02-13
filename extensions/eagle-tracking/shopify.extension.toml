@@ -1,0 +1,10 @@
+api_version = "2025-01"
+
+[[extensions]]
+uid = "3a6251f3-07ae-9680-d2b6-c947d6cf43f0755a8f05"
+type = "theme"
+name = "Eagle B2B Tracking"
+handle = "eagle-b2b-tracking"
+
+  [extensions.capabilities]
+  block_progress = true

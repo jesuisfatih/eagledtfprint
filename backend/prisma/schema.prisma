@@ -1,0 +1,1567 @@
+// Eagle B2B Commerce Engine - Database Schema
+// Prisma Schema - PostgreSQL 16
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// MERCHANTS (Shopify Store Owners)
+// ============================================
+
+model Merchant {
+  id             String    @id @default(uuid())
+  shopDomain     String    @unique @map("shop_domain")
+  shopifyShopId  BigInt?   @unique @map("shopify_shop_id")
+  accessToken    String    @map("access_token")
+  scope          String?
+  planName       String    @default("free") @map("plan_name")
+  status         String    @default("active")
+  settings       Json      @default("{}")
+  snippetEnabled Boolean   @default(false) @map("snippet_enabled")
+  lastSyncAt     DateTime? @map("last_sync_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  customers      ShopifyCustomer[]
+  companies      Company[]
+  products       CatalogProduct[]
+  orders         OrderLocal[]
+  pricingRules   PricingRule[]
+  carts          Cart[]
+  activityLogs   ActivityLog[]
+  discountCodes  DiscountCode[]
+  syncLogs       SyncLog[]
+  syncStates     SyncState[]
+  wishlists      Wishlist[]
+  addresses      Address[]
+  supportTickets SupportTicket[]
+  fingerprints   VisitorFingerprint[]
+  identities     VisitorIdentity[]
+  visitorSessions VisitorSession[]
+  visitorEvents  VisitorEvent[]
+  companyIntelligence CompanyIntelligence[]
+  trafficAttributions TrafficAttribution[]
+  segments       Segment[]
+  campaigns      Campaign[]
+  quotes         Quote[]
+  invoices       Invoice[]
+  pickupShelves  PickupShelf[]
+  pickupOrders   PickupOrder[]
+  proactiveOffers ProactiveOffer[]
+
+  @@index([shopDomain])
+  @@index([status])
+  @@map("merchants")
+}
+
+// ============================================
+// SHOPIFY CUSTOMERS (Synced from Shopify)
+// ============================================
+
+model ShopifyCustomer {
+  id                String   @id @default(uuid())
+  merchantId        String   @map("merchant_id")
+  shopifyCustomerId BigInt   @map("shopify_customer_id")
+  email             String?
+  firstName         String?  @map("first_name")
+  lastName          String?  @map("last_name")
+  phone             String?
+  addresses         Json?
+  tags              String?
+  note              String?
+  totalSpent        Decimal? @map("total_spent") @db.Decimal(12, 2)
+  ordersCount       Int      @default(0) @map("orders_count")
+  rawData           Json?    @map("raw_data")
+
+  // Enhanced customer data
+  verifiedEmail       Boolean? @map("verified_email")
+  acceptsMarketing    Boolean? @map("accepts_marketing")
+  marketingOptInLevel String?  @map("marketing_opt_in_level")
+  taxExempt           Boolean? @map("tax_exempt")
+  state               String?  // enabled, disabled, invited, declined
+  currency            String?
+  locale              String?
+  lastOrderId         BigInt?  @map("last_order_id")
+  lastOrderAt         DateTime? @map("last_order_at")
+  averageOrderValue   Decimal? @map("average_order_value") @db.Decimal(12, 2)
+  metafields          Json?    // Synced customer metafields
+
+  syncedAt  DateTime @default(now()) @map("synced_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  insight  CustomerInsight?
+  proactiveOffers ProactiveOffer[]
+
+  @@unique([merchantId, shopifyCustomerId])
+  @@index([merchantId])
+  @@index([email])
+  @@index([shopifyCustomerId])
+  @@map("shopify_customers")
+}
+
+// ============================================
+// CUSTOMER INSIGHTS (CLV, RFM, Health)
+// ============================================
+
+model CustomerInsight {
+  id                String @id @default(uuid())
+  shopifyCustomerId String @unique @map("shopify_customer_id")
+
+  // CLV (Customer Lifetime Value)
+  clvScore          Decimal? @map("clv_score") @db.Decimal(12, 2)
+  projectedClv      Decimal? @map("projected_clv") @db.Decimal(12, 2)
+  clvTier           String?  @map("clv_tier") // platinum, gold, silver, bronze
+
+  // RFM Segmentation (1-5 each)
+  rfmRecency        Int? @map("rfm_recency")
+  rfmFrequency      Int? @map("rfm_frequency")
+  rfmMonetary        Int? @map("rfm_monetary")
+  rfmSegment        String? @map("rfm_segment") // champions, loyal, at_risk, hibernating, etc.
+
+  // Health & Engagement
+  healthScore       Int?     @map("health_score") // 0-100
+  churnRisk         String?  @map("churn_risk") // low, medium, high, critical
+  daysSinceLastOrder Int?    @map("days_since_last_order")
+  avgDaysBetweenOrders Int?  @map("avg_days_between_orders")
+  purchaseFrequency String?  @map("purchase_frequency") // weekly, monthly, quarterly, yearly, irregular
+
+  // Purchase Patterns
+  preferredCategories Json?  @map("preferred_categories") // Top product types
+  preferredVendors    Json?  @map("preferred_vendors")
+  avgOrderValue       Decimal? @map("avg_order_value") @db.Decimal(12, 2)
+  maxOrderValue       Decimal? @map("max_order_value") @db.Decimal(12, 2)
+  orderTrend          String?  @map("order_trend") // increasing, stable, declining
+
+  // Milestones
+  firstOrderAt      DateTime? @map("first_order_at")
+  lastOrderAt       DateTime? @map("last_order_at")
+  customerSince     DateTime? @map("customer_since")
+  isReturning       Boolean   @default(false) @map("is_returning")
+
+  calculatedAt DateTime @default(now()) @map("calculated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  shopifyCustomer ShopifyCustomer @relation(fields: [shopifyCustomerId], references: [id], onDelete: Cascade)
+
+  @@index([clvTier])
+  @@index([rfmSegment])
+  @@index([churnRisk])
+  @@index([healthScore])
+  @@map("customer_insights")
+}
+
+// ============================================
+// PROACTIVE OFFERS (Auto-generated customer offers)
+// ============================================
+
+model ProactiveOffer {
+  id                String   @id @default(uuid())
+  merchantId        String   @map("merchant_id")
+  shopifyCustomerId String   @map("shopify_customer_id")
+
+  // Offer strategy
+  strategy          String   // win_back, loyalty_reward, upsell, cross_sell, cart_recovery, birthday, anniversary, reactivation, volume_incentive, referral
+  triggerReason     String?  @map("trigger_reason") // Human-readable reason
+
+  // Discount details
+  discountType      String   @map("discount_type") // percentage, fixed_amount, free_shipping
+  discountValue     Decimal  @map("discount_value") @db.Decimal(12, 2) // e.g. 15 for 15% or 10.00 for $10
+  discountCode      String?  @map("discount_code")
+  minimumOrderAmount Decimal? @map("minimum_order_amount") @db.Decimal(12, 2)
+
+  // Shopify integration
+  shopifyDiscountId  String? @map("shopify_discount_id") // Shopify GID
+
+  // Offer metadata
+  title             String?
+  message           String?  // Personalized message to customer
+  suggestedProducts Json?    @map("suggested_products") // Product IDs relevant to offer
+
+  // Delivery
+  channel           String  @default("email") // email, sms, in_app, popup
+  deliveredAt       DateTime? @map("delivered_at")
+  deliveryStatus    String  @default("pending") @map("delivery_status") // pending, sent, delivered, failed
+
+  // Acceptance tracking
+  status            String  @default("active") // active, accepted, expired, cancelled
+  viewedAt          DateTime? @map("viewed_at")
+  acceptedAt        DateTime? @map("accepted_at")
+  redeemedAt        DateTime? @map("redeemed_at")
+  expiredAt         DateTime? @map("expired_at")
+  expiresAt         DateTime  @map("expires_at")
+
+  // Conversion tracking
+  resultOrderId     String?  @map("result_order_id")
+  resultRevenue     Decimal? @map("result_revenue") @db.Decimal(12, 2)
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant          Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  shopifyCustomer   ShopifyCustomer @relation(fields: [shopifyCustomerId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([shopifyCustomerId])
+  @@index([strategy])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("proactive_offers")
+}
+
+// ============================================
+// COMPANIES (B2B Firms)
+// ============================================
+
+model Company {
+  id                         String  @id @default(uuid())
+  merchantId                 String  @map("merchant_id")
+  name                       String
+  legalName                  String? @map("legal_name")
+  taxId                      String? @map("tax_id")
+  email                      String?
+  phone                      String?
+  website                    String?
+  billingAddress             Json?   @map("billing_address")
+  shippingAddress            Json?   @map("shipping_address")
+  companyGroup               String? @map("company_group")
+  status                     String  @default("pending")
+  settings                   Json    @default("{}")
+  createdByShopifyCustomerId BigInt? @map("created_by_shopify_customer_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant       Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  users          CompanyUser[]
+  pricingRules   PricingRule[]
+  carts          Cart[]
+  orders         OrderLocal[]
+  activityLogs   ActivityLog[]
+  discountCodes  DiscountCode[]
+  wishlists      Wishlist[]
+  addresses      Address[]
+  supportTickets SupportTicket[]
+  identities     VisitorIdentity[]
+  visitorSessions VisitorSession[]  @relation("CompanySessions")
+  visitorEvents  VisitorEvent[]     @relation("CompanyEvents")
+  intelligence   CompanyIntelligence?
+  quotes              Quote[]
+  invoices            Invoice[]
+  pickupOrders        PickupOrder[]
+
+  @@index([merchantId])
+  @@index([status])
+  @@index([companyGroup])
+  @@map("companies")
+}
+
+// ============================================
+// COMPANY USERS (Team Members)
+// ============================================
+
+model CompanyUser {
+  id                   String    @id @default(uuid())
+  companyId            String    @map("company_id")
+  shopifyCustomerId    BigInt?   @map("shopify_customer_id")
+  email                String    @unique
+  passwordHash         String?   @map("password_hash")
+  firstName            String?   @map("first_name")
+  lastName             String?   @map("last_name")
+  role                 String    @default("buyer")
+  permissions          Json      @default("{}")
+  isActive             Boolean   @default(true) @map("is_active")
+  lastLoginAt          DateTime? @map("last_login_at")
+  invitationToken      String?   @map("invitation_token")
+  invitationSentAt     DateTime? @map("invitation_sent_at")
+  invitationAcceptedAt DateTime? @map("invitation_accepted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  cartsCreated   Cart[]          @relation("CartCreator")
+  cartsApproved  Cart[]          @relation("CartApprover")
+  activityLogs   ActivityLog[]
+  orders         OrderLocal[]
+  wishlists      Wishlist[]
+  addresses      Address[]
+  supportTickets SupportTicket[]
+  identities     VisitorIdentity[]
+  visitorSessions VisitorSession[]  @relation("UserSessions")
+  visitorEvents  VisitorEvent[]     @relation("UserEvents")
+  targetedPricingRules PricingRule[] @relation("UserPricingRules")
+  quotes         Quote[]
+  invoices       Invoice[]
+  pickupOrders   PickupOrder[]
+
+  @@index([companyId])
+  @@index([email])
+  @@index([shopifyCustomerId])
+  @@map("company_users")
+}
+
+// ============================================
+// CATALOG PRODUCTS (Shopify Products Cache)
+// ============================================
+
+model CatalogProduct {
+  id               String  @id @default(uuid())
+  merchantId       String  @map("merchant_id")
+  shopifyProductId BigInt  @map("shopify_product_id")
+  title            String?
+  handle           String?
+  description      String?
+  descriptionHtml  String? @map("description_html")
+  vendor           String?
+  productType      String? @map("product_type")
+  tags             String?
+  status           String?
+  images           Json?
+  collections      Json?
+  rawData          Json?   @map("raw_data")
+
+  // Enhanced product data
+  metafields       Json?                      // All product metafields
+  seoTitle         String? @map("seo_title")
+  seoDescription   String? @map("seo_description")
+  options          Json?                      // [{name: 'Size', values: ['S','M','L']}]
+  media            Json?                      // All media (images, videos, 3D)
+  templateSuffix   String? @map("template_suffix")
+  publishedAt      DateTime? @map("published_at")
+  onlineStoreUrl   String? @map("online_store_url")
+  totalInventory   Int?     @map("total_inventory")
+  hasOnlyDefaultVariant Boolean? @map("has_only_default_variant")
+  requiresSellingPlan Boolean? @map("requires_selling_plan")
+
+  // Reviews (populated from Judge.me / Shopify Reviews)
+  reviewsAvgRating Decimal? @map("reviews_avg_rating") @db.Decimal(3, 2)
+  reviewsCount     Int?     @map("reviews_count") @default(0)
+
+  syncedAt  DateTime @default(now()) @map("synced_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant     Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  variants     CatalogVariant[]
+  cartItems    CartItem[]
+  activityLogs ActivityLog[]
+
+  @@unique([merchantId, shopifyProductId])
+  @@index([merchantId])
+  @@index([shopifyProductId])
+  @@index([handle])
+  @@index([vendor])
+  @@index([productType])
+  @@index([status])
+  @@map("catalog_products")
+}
+
+// ============================================
+// CATALOG VARIANTS
+// ============================================
+
+model CatalogVariant {
+  id                String   @id @default(uuid())
+  productId         String   @map("product_id")
+  shopifyVariantId  BigInt   @unique @map("shopify_variant_id")
+  sku               String?
+  barcode           String?
+  title             String?
+  price             Decimal? @db.Decimal(12, 2)
+  compareAtPrice    Decimal? @map("compare_at_price") @db.Decimal(12, 2)
+  inventoryQuantity Int?     @map("inventory_quantity")
+  weight            Decimal? @db.Decimal(10, 2)
+  weightUnit        String?  @map("weight_unit")
+  option1           String?
+  option2           String?
+  option3           String?
+  rawData           Json?    @map("raw_data")
+
+  // Enhanced variant data
+  imageUrl          String?  @map("image_url")
+  position          Int?     @default(0)
+  taxable           Boolean? @default(true)
+  requiresShipping  Boolean? @map("requires_shipping") @default(true)
+  availableForSale  Boolean? @map("available_for_sale") @default(true)
+  inventoryPolicy   String?  @map("inventory_policy") // deny, continue
+
+  syncedAt  DateTime @default(now()) @map("synced_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  product      CatalogProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems    CartItem[]
+  activityLogs ActivityLog[]
+
+  @@index([productId])
+  @@index([shopifyVariantId])
+  @@index([sku])
+  @@index([barcode])
+  @@map("catalog_variants")
+}
+
+// ============================================
+// PRICING RULES
+// ============================================
+
+model PricingRule {
+  id          String  @id @default(uuid())
+  merchantId  String  @map("merchant_id")
+  name        String
+  description String?
+
+  // Target (Who?)
+  targetType           String  @map("target_type")
+  targetCompanyId      String? @map("target_company_id")
+  targetCompanyUserId  String? @map("target_company_user_id")
+  targetCompanyGroup   String? @map("target_company_group")
+
+  // Scope (What?)
+  scopeType          String   @map("scope_type")
+  scopeProductIds    BigInt[] @map("scope_product_ids")
+  scopeCollectionIds BigInt[] @map("scope_collection_ids")
+  scopeTags          String?  @map("scope_tags")
+  scopeVariantIds    BigInt[] @map("scope_variant_ids")
+
+  // Discount Type
+  discountType       String   @map("discount_type")
+  discountValue      Decimal? @map("discount_value") @db.Decimal(12, 2)
+  discountPercentage Decimal? @map("discount_percentage") @db.Decimal(5, 2)
+  qtyBreaks          Json?    @map("qty_breaks")
+  minCartAmount      Decimal? @map("min_cart_amount") @db.Decimal(12, 2)
+
+  // Priority & Status
+  priority   Int       @default(0)
+  isActive   Boolean   @default(true) @map("is_active")
+  validFrom  DateTime? @map("valid_from")
+  validUntil DateTime? @map("valid_until")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant          Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  targetCompany     Company?     @relation(fields: [targetCompanyId], references: [id], onDelete: Cascade)
+  targetCompanyUser CompanyUser? @relation("UserPricingRules", fields: [targetCompanyUserId], references: [id], onDelete: Cascade)
+  cartItems         CartItem[]
+  linkedCampaign    Campaign?
+
+  @@index([merchantId])
+  @@index([targetCompanyId])
+  @@index([isActive])
+  @@index([validFrom, validUntil])
+  @@map("pricing_rules")
+}
+
+// ============================================
+// CARTS
+// ============================================
+
+model Cart {
+  id              String @id @default(uuid())
+  merchantId      String @map("merchant_id")
+  companyId       String @map("company_id")
+  createdByUserId String @map("created_by_user_id")
+
+  status String @default("draft")
+
+  subtotal      Decimal @default(0) @db.Decimal(12, 2)
+  discountTotal Decimal @default(0) @map("discount_total") @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @map("tax_total") @db.Decimal(12, 2)
+  total         Decimal @default(0) @db.Decimal(12, 2)
+  currency      String  @default("USD")
+
+  appliedPricingRules Json? @map("applied_pricing_rules")
+
+  shopifyCartId      String? @map("shopify_cart_id")
+  shopifyCheckoutUrl String? @map("shopify_checkout_url")
+
+  approvedByUserId   String?   @map("approved_by_user_id")
+  approvedAt         DateTime? @map("approved_at")
+  convertedToOrderId String?   @map("converted_to_order_id")
+  convertedAt        DateTime? @map("converted_at")
+
+  notes    String?
+  metadata Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant       Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy      CompanyUser    @relation("CartCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  approvedBy     CompanyUser?   @relation("CartApprover", fields: [approvedByUserId], references: [id])
+  items          CartItem[]
+  discountCodes  DiscountCode[]
+  convertedOrder OrderLocal?    @relation(fields: [convertedToOrderId], references: [id])
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([createdByUserId])
+  @@index([status])
+  @@map("carts")
+}
+
+// ============================================
+// CART ITEMS
+// ============================================
+
+model CartItem {
+  id     String @id @default(uuid())
+  cartId String @map("cart_id")
+
+  productId        String? @map("product_id")
+  variantId        String? @map("variant_id")
+  shopifyProductId BigInt? @map("shopify_product_id")
+  shopifyVariantId BigInt? @map("shopify_variant_id")
+
+  sku          String?
+  title        String?
+  variantTitle String? @map("variant_title")
+
+  quantity Int @default(1)
+
+  listPrice      Decimal  @map("list_price") @db.Decimal(12, 2)
+  unitPrice      Decimal  @map("unit_price") @db.Decimal(12, 2)
+  discountAmount Decimal  @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  lineTotal      Decimal? @map("line_total") @db.Decimal(12, 2)
+
+  appliedPricingRuleId String? @map("applied_pricing_rule_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  cart               Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product            CatalogProduct? @relation(fields: [productId], references: [id])
+  variant            CatalogVariant? @relation(fields: [variantId], references: [id])
+  appliedPricingRule PricingRule?    @relation(fields: [appliedPricingRuleId], references: [id])
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("cart_items")
+}
+
+// ============================================
+// ORDERS LOCAL (Shopify Order Cache)
+// ============================================
+
+model OrderLocal {
+  id            String  @id @default(uuid())
+  merchantId    String  @map("merchant_id")
+  companyId     String? @map("company_id")
+  companyUserId String? @map("company_user_id")
+  cartId        String? @map("cart_id")
+
+  shopifyOrderId     BigInt  @map("shopify_order_id")
+  shopifyOrderNumber String? @map("shopify_order_number")
+  shopifyCustomerId  BigInt? @map("shopify_customer_id")
+
+  email          String?
+  phone          String?
+  subtotal       Decimal? @db.Decimal(12, 2)
+  totalDiscounts Decimal? @map("total_discounts") @db.Decimal(12, 2)
+  totalTax       Decimal? @map("total_tax") @db.Decimal(12, 2)
+  totalPrice     Decimal? @map("total_price") @db.Decimal(12, 2)
+  totalShipping  Decimal? @map("total_shipping") @db.Decimal(12, 2)
+  totalRefunded  Decimal? @map("total_refunded") @db.Decimal(12, 2)
+  currency       String?
+
+  financialStatus   String? @map("financial_status")
+  fulfillmentStatus String? @map("fulfillment_status")
+
+  // Order metadata
+  notes          String?
+  tags           String?
+  riskLevel      String?  @map("risk_level") // low, medium, high
+
+  lineItems       Json? @map("line_items")
+  shippingAddress Json? @map("shipping_address")
+  billingAddress  Json? @map("billing_address")
+  discountCodes   Json? @map("discount_codes")
+
+  // Fulfillment & Refund tracking
+  fulfillments    Json?  // [{trackingNumber, trackingUrl, carrier, status, createdAt}]
+  refunds         Json?  // [{id, amount, note, createdAt}]
+
+  rawData Json? @map("raw_data")
+
+  // Lifecycle timestamps
+  processedAt   DateTime? @map("processed_at")
+  cancelledAt   DateTime? @map("cancelled_at")
+  closedAt      DateTime? @map("closed_at")
+
+  syncedAt  DateTime @default(now()) @map("synced_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant     Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company      Company?     @relation(fields: [companyId], references: [id])
+  companyUser  CompanyUser? @relation(fields: [companyUserId], references: [id])
+  relatedCarts Cart[]
+  invoices     Invoice[]
+  pickupOrders PickupOrder[]
+
+  @@unique([merchantId, shopifyOrderId])
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([shopifyOrderId])
+  @@index([shopifyCustomerId])
+  @@index([financialStatus])
+  @@index([fulfillmentStatus])
+  @@map("orders_local")
+}
+
+// ============================================
+// ACTIVITY LOG (Event Store)
+// ============================================
+
+model ActivityLog {
+  id            String  @id @default(uuid())
+  merchantId    String  @map("merchant_id")
+  companyId     String? @map("company_id")
+  companyUserId String? @map("company_user_id")
+
+  shopifyCustomerId BigInt? @map("shopify_customer_id")
+  sessionId         String? @map("session_id")
+  eagleToken        String? @map("eagle_token")
+
+  eventType String @map("event_type")
+
+  productId        String? @map("product_id")
+  variantId        String? @map("variant_id")
+  shopifyProductId BigInt? @map("shopify_product_id")
+  shopifyVariantId BigInt? @map("shopify_variant_id")
+
+  payload Json?
+
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+  referrer  String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  merchant    Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company     Company?        @relation(fields: [companyId], references: [id])
+  companyUser CompanyUser?    @relation(fields: [companyUserId], references: [id])
+  product     CatalogProduct? @relation(fields: [productId], references: [id])
+  variant     CatalogVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([companyUserId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("activity_log")
+}
+
+// ============================================
+// VISITOR FINGERPRINTS (Browser Fingerprinting)
+// ============================================
+
+model VisitorFingerprint {
+  id              String  @id @default(uuid())
+  merchantId      String  @map("merchant_id")
+  fingerprintHash String  @map("fingerprint_hash")
+
+  // Canvas & WebGL signatures
+  canvasHash   String? @map("canvas_hash")
+  webglHash    String? @map("webgl_hash")
+  audioHash    String? @map("audio_hash")
+
+  // Device & Browser signals
+  userAgent    String? @map("user_agent")
+  platform     String?
+  language     String?
+  languages    String?
+  timezone     String?
+  timezoneOffset Int?  @map("timezone_offset")
+
+  // Screen & Display
+  screenWidth  Int?    @map("screen_width")
+  screenHeight Int?    @map("screen_height")
+  colorDepth   Int?    @map("color_depth")
+  pixelRatio   Float?  @map("pixel_ratio")
+  touchSupport Boolean? @map("touch_support")
+
+  // Hardware signals
+  hardwareConcurrency Int?    @map("hardware_concurrency")
+  deviceMemory        Float?  @map("device_memory")
+  maxTouchPoints      Int?    @map("max_touch_points")
+  gpuVendor           String? @map("gpu_vendor")
+  gpuRenderer         String? @map("gpu_renderer")
+
+  // Browser features
+  cookiesEnabled  Boolean? @map("cookies_enabled")
+  doNotTrack      String?  @map("do_not_track")
+  adBlockDetected Boolean? @map("ad_block_detected")
+  pluginCount     Int?     @map("plugin_count")
+  fontCount       Int?     @map("font_count")
+
+  // Network signals
+  connectionType String? @map("connection_type")
+  ipAddress      String? @map("ip_address")
+
+  // Bot detection
+  isBot       Boolean @default(false) @map("is_bot")
+  botScore    Float?  @map("bot_score")
+
+  // Confidence & quality
+  signalCount Int   @default(0) @map("signal_count")
+  confidence  Float @default(0)
+
+  // ThumbmarkJS hash (90% accuracy cross-session fingerprint)
+  thumbmarkHash String? @map("thumbmark_hash")
+
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
+  visitCount  Int      @default(1) @map("visit_count")
+
+  // Relations
+  merchant      Merchant              @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  identities    VisitorIdentity[]
+  sessions      VisitorSession[]
+  events        VisitorEvent[]
+  attributions  TrafficAttribution[]
+
+  @@unique([merchantId, fingerprintHash])
+  @@index([merchantId])
+  @@index([fingerprintHash])
+  @@index([thumbmarkHash])
+  @@index([canvasHash])
+  @@index([lastSeenAt])
+  @@index([isBot])
+  @@map("visitor_fingerprints")
+}
+
+// ============================================
+// VISITOR IDENTITY RESOLUTION (Identity Graph)
+// ============================================
+
+model VisitorIdentity {
+  id              String  @id @default(uuid())
+  merchantId      String  @map("merchant_id")
+  fingerprintId   String  @map("fingerprint_id")
+
+  // Identity linkage
+  shopifyCustomerId BigInt?  @map("shopify_customer_id")
+  companyUserId     String?  @map("company_user_id")
+  companyId         String?  @map("company_id")
+  email             String?
+
+  // Session linkage
+  sessionId       String?  @map("session_id")
+  eagleToken      String?  @map("eagle_token")
+
+  // Resolution metadata
+  matchType       String   @map("match_type")
+  matchConfidence Float    @default(0) @map("match_confidence")
+
+  // Behavioral profile
+  totalPageViews    Int     @default(0) @map("total_page_views")
+  totalProductViews Int     @default(0) @map("total_product_views")
+  totalAddToCarts   Int     @default(0) @map("total_add_to_carts")
+  totalOrders       Int     @default(0) @map("total_orders")
+  totalRevenue      Decimal @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  lastProductViewed String? @map("last_product_viewed")
+  lastPageUrl       String? @map("last_page_url")
+
+  // Engagement scoring
+  engagementScore Float  @default(0) @map("engagement_score")
+  buyerIntent     String @default("cold") @map("buyer_intent")
+  segment         String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  fingerprint VisitorFingerprint @relation(fields: [fingerprintId], references: [id], onDelete: Cascade)
+  companyUser CompanyUser?       @relation(fields: [companyUserId], references: [id])
+  company     Company?           @relation(fields: [companyId], references: [id])
+
+  @@unique([merchantId, fingerprintId, matchType])
+  @@index([merchantId])
+  @@index([fingerprintId])
+  @@index([shopifyCustomerId])
+  @@index([companyUserId])
+  @@index([email])
+  @@index([buyerIntent])
+  @@index([engagementScore])
+  @@map("visitor_identities")
+}
+
+// ============================================
+// VISITOR SESSIONS (Browsing Session Archive)
+// ============================================
+
+model VisitorSession {
+  id              String  @id @default(uuid())
+  merchantId      String  @map("merchant_id")
+  fingerprintId   String  @map("fingerprint_id")
+  companyUserId   String? @map("company_user_id")
+  companyId       String? @map("company_id")
+
+  sessionId       String  @map("session_id")
+  ipAddress       String? @map("ip_address")
+  userAgent       String? @map("user_agent")
+  platform        String?
+  language        String?
+  timezone        String?
+  referrer        String?
+  landingPage     String? @map("landing_page")
+  exitPage        String? @map("exit_page")
+
+  // Traffic source / UTM attribution
+  utmSource       String? @map("utm_source")
+  utmMedium       String? @map("utm_medium")
+  utmCampaign     String? @map("utm_campaign")
+  utmContent      String? @map("utm_content")
+  utmTerm         String? @map("utm_term")
+  gclid           String? // Google Ads click ID
+  fbclid          String? // Facebook/Meta click ID
+  ttclid          String? // TikTok click ID
+  msclkid         String? // Microsoft/Bing Ads click ID
+  trafficChannel  String? @map("traffic_channel") // google_ads, facebook_ads, google_organic, direct, email, etc.
+  referrerDomain  String? @map("referrer_domain")
+
+  // Session metrics
+  pageViews       Int     @default(0) @map("page_views")
+  productViews    Int     @default(0) @map("product_views")
+  addToCarts      Int     @default(0) @map("add_to_carts")
+  searchCount     Int     @default(0) @map("search_count")
+  durationSeconds Int     @default(0) @map("duration_seconds")
+
+  // Context
+  isLoggedIn      Boolean @default(false) @map("is_logged_in")
+  isBot           Boolean @default(false) @map("is_bot")
+
+  startedAt       DateTime @default(now()) @map("started_at")
+  lastActivityAt  DateTime @default(now()) @map("last_activity_at")
+  endedAt         DateTime? @map("ended_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  fingerprint VisitorFingerprint @relation(fields: [fingerprintId], references: [id], onDelete: Cascade)
+  companyUser CompanyUser?       @relation("UserSessions", fields: [companyUserId], references: [id])
+  company     Company?           @relation("CompanySessions", fields: [companyId], references: [id])
+  events      VisitorEvent[]
+
+  @@unique([merchantId, sessionId])
+  @@index([merchantId])
+  @@index([fingerprintId])
+  @@index([companyUserId])
+  @@index([companyId])
+  @@index([startedAt])
+  @@index([trafficChannel])
+  @@index([utmSource])
+  @@index([utmCampaign])
+  @@map("visitor_sessions")
+}
+
+// ============================================
+// VISITOR EVENTS (Granular Event Archive)
+// ============================================
+
+model VisitorEvent {
+  id              String  @id @default(uuid())
+  merchantId      String  @map("merchant_id")
+  sessionId       String  @map("session_id")
+  fingerprintId   String? @map("fingerprint_id")
+  companyUserId   String? @map("company_user_id")
+  companyId       String? @map("company_id")
+
+  eventType       String  @map("event_type")
+
+  // Event payload
+  pageUrl         String? @map("page_url")
+  pagePath        String? @map("page_path")
+  pageTitle       String? @map("page_title")
+  referrer        String?
+
+  // Product context
+  shopifyProductId BigInt?  @map("shopify_product_id")
+  shopifyVariantId BigInt?  @map("shopify_variant_id")
+  productTitle     String?  @map("product_title")
+  productPrice     Decimal? @map("product_price") @db.Decimal(12, 2)
+  quantity         Int?
+
+  // Search context
+  searchQuery      String?  @map("search_query")
+
+  // Cart context
+  cartValue        Decimal? @map("cart_value") @db.Decimal(12, 2)
+
+  // Extra data
+  metadata        Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  merchant    Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  session     VisitorSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  fingerprint VisitorFingerprint? @relation(fields: [fingerprintId], references: [id])
+  companyUser CompanyUser?       @relation("UserEvents", fields: [companyUserId], references: [id])
+  company     Company?           @relation("CompanyEvents", fields: [companyId], references: [id])
+
+  @@index([merchantId])
+  @@index([sessionId])
+  @@index([companyUserId])
+  @@index([companyId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([shopifyProductId])
+  @@map("visitor_events")
+}
+
+// ============================================
+// COMPANY INTELLIGENCE (Aggregated Company Behavior)
+// ============================================
+
+model CompanyIntelligence {
+  id              String @id @default(uuid())
+  merchantId      String @map("merchant_id")
+  companyId       String @unique @map("company_id")
+
+  // Behavioral aggregates
+  totalVisitors       Int @default(0) @map("total_visitors")
+  totalSessions       Int @default(0) @map("total_sessions")
+  totalPageViews      Int @default(0) @map("total_page_views")
+  totalProductViews   Int @default(0) @map("total_product_views")
+  totalAddToCarts     Int @default(0) @map("total_add_to_carts")
+  totalOrders         Int @default(0) @map("total_orders")
+  totalRevenue        Decimal @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  avgSessionDuration  Int @default(0) @map("avg_session_duration")
+  avgOrderValue       Decimal @default(0) @map("avg_order_value") @db.Decimal(12, 2)
+
+  // Engagement scoring
+  engagementScore     Float  @default(0) @map("engagement_score")
+  buyerIntent         String @default("cold") @map("buyer_intent")
+  segment             String @default("new") // new, active, loyal, at_risk, churned
+
+  // Top interests (JSON arrays of product/collection IDs)
+  topViewedProducts   Json? @map("top_viewed_products")
+  topPurchasedProducts Json? @map("top_purchased_products")
+  topCategories       Json? @map("top_categories")
+  preferredBrands     Json? @map("preferred_brands")
+
+  // Marketing signals
+  lastActiveAt        DateTime? @map("last_active_at")
+  firstOrderAt        DateTime? @map("first_order_at")
+  lastOrderAt         DateTime? @map("last_order_at")
+  daysSinceLastOrder  Int? @map("days_since_last_order")
+  orderFrequencyDays  Int? @map("order_frequency_days")
+
+  // Recommended actions
+  suggestedDiscount   Float? @map("suggested_discount")
+  suggestedProducts   Json? @map("suggested_products")
+  churnRisk           Float  @default(0) @map("churn_risk")
+  upsellPotential     Float  @default(0) @map("upsell_potential")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([engagementScore])
+  @@index([segment])
+  @@map("company_intelligence")
+}
+
+// ============================================
+// DISCOUNT CODES
+// ============================================
+
+model DiscountCode {
+  id         String  @id @default(uuid())
+  merchantId String  @map("merchant_id")
+  companyId  String? @map("company_id")
+  cartId     String? @map("cart_id")
+
+  code              String
+  shopifyDiscountId BigInt? @map("shopify_discount_id")
+
+  discountType String?  @map("discount_type")
+  value        Decimal? @db.Decimal(12, 2)
+
+  usageLimit Int? @map("usage_limit")
+  usedCount  Int  @default(0) @map("used_count")
+
+  validFrom  DateTime? @map("valid_from")
+  validUntil DateTime? @map("valid_until")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company  Company? @relation(fields: [companyId], references: [id])
+  cart     Cart?    @relation(fields: [cartId], references: [id])
+
+  @@unique([merchantId, code])
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([code])
+  @@map("discount_codes")
+}
+
+// ============================================
+// SYNC LOGS
+// ============================================
+
+model SyncLog {
+  id         String @id @default(uuid())
+  merchantId String @map("merchant_id")
+
+  syncType String @map("sync_type")
+  status   String @default("running")
+
+  recordsProcessed Int @default(0) @map("records_processed")
+  recordsFailed    Int @default(0) @map("records_failed")
+
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  errorMessage String? @map("error_message")
+  metadata     Json?
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([syncType])
+  @@index([status])
+  @@map("sync_logs")
+}
+
+// ============================================
+// SYNC STATE (Per-entity persistent state)
+// ============================================
+
+model SyncState {
+  id         String @id @default(uuid())
+  merchantId String @map("merchant_id")
+  entityType String @map("entity_type") // 'customers' | 'products' | 'orders'
+
+  // Current state
+  status          String  @default("idle") // 'idle' | 'running' | 'completed' | 'failed'
+  isLocked        Boolean @default(false) @map("is_locked")
+  lockedAt        DateTime? @map("locked_at")
+  lockExpiresAt   DateTime? @map("lock_expires_at")
+
+  // Cursor for incremental sync
+  lastCursor      String? @map("last_cursor")
+  lastSyncedId    BigInt? @map("last_synced_id")
+
+  // Timestamps
+  lastStartedAt   DateTime? @map("last_started_at")
+  lastCompletedAt DateTime? @map("last_completed_at")
+  lastFailedAt    DateTime? @map("last_failed_at")
+
+  // Metrics
+  totalRecordsSynced Int @default(0) @map("total_records_synced")
+  lastRunRecords     Int @default(0) @map("last_run_records")
+  consecutiveFailures Int @default(0) @map("consecutive_failures")
+
+  // Error tracking
+  lastError       String? @map("last_error")
+
+  // Metadata
+  metadata        Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, entityType])
+  @@index([merchantId])
+  @@index([entityType])
+  @@index([status])
+  @@map("sync_states")
+}
+
+// ============================================
+// WISHLISTS
+// ============================================
+
+model Wishlist {
+  id            String @id @default(uuid())
+  merchantId    String @map("merchant_id")
+  companyId     String @map("company_id")
+  companyUserId String @map("company_user_id")
+
+  name String @default("My Wishlist")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyUser CompanyUser    @relation(fields: [companyUserId], references: [id], onDelete: Cascade)
+  items       WishlistItem[]
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([companyUserId])
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String @id @default(uuid())
+  wishlistId String @map("wishlist_id")
+
+  productId String  @map("product_id")
+  variantId String? @map("variant_id")
+
+  // Product snapshot (in case product deleted from Shopify)
+  productTitle String  @map("product_title")
+  variantTitle String? @map("variant_title")
+  productImage String? @map("product_image")
+  price        Float
+
+  addedAt DateTime @default(now()) @map("added_at")
+
+  // Relations
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productId, variantId])
+  @@index([wishlistId])
+  @@map("wishlist_items")
+}
+
+// ============================================
+// USER ADDRESSES
+// ============================================
+
+model Address {
+  id            String  @id @default(uuid())
+  merchantId    String  @map("merchant_id")
+  companyId     String  @map("company_id")
+  companyUserId String? @map("company_user_id")
+
+  label        String? // e.g., "Main Office", "Warehouse"
+  firstName    String? @map("first_name")
+  lastName     String? @map("last_name")
+  company      String?
+  address1     String
+  address2     String?
+  city         String
+  province     String?
+  provinceCode String? @map("province_code")
+  country      String
+  countryCode  String  @map("country_code")
+  zip          String
+  phone        String?
+
+  isDefault  Boolean @default(false) @map("is_default")
+  isBilling  Boolean @default(false) @map("is_billing")
+  isShipping Boolean @default(true) @map("is_shipping")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  addressCompany Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyUser    CompanyUser? @relation(fields: [companyUserId], references: [id], onDelete: SetNull)
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([companyUserId])
+  @@map("addresses")
+}
+
+// ============================================
+// SUPPORT TICKETS
+// ============================================
+
+model SupportTicket {
+  id            String @id @default(uuid())
+  ticketNumber  String @unique @map("ticket_number")
+  merchantId    String @map("merchant_id")
+  companyId     String @map("company_id")
+  companyUserId String @map("company_user_id")
+
+  subject     String
+  description String @db.Text
+  category    String @default("general")
+  priority    String @default("medium")
+  status      String @default("open")
+
+  orderId String? @map("order_id")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  // Relations
+  merchant    Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyUser CompanyUser      @relation(fields: [companyUserId], references: [id], onDelete: Cascade)
+  responses   TicketResponse[]
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@index([companyUserId])
+  @@index([status])
+  @@index([ticketNumber])
+  @@map("support_tickets")
+}
+
+model TicketResponse {
+  id       String @id @default(uuid())
+  ticketId String @map("ticket_id")
+
+  message      String  @db.Text
+  isStaffReply Boolean @default(false) @map("is_staff_reply")
+
+  // Responder info (staff or user)
+  responderId   String @map("responder_id")
+  responderName String @map("responder_name")
+  responderType String @default("user") @map("responder_type") // user, staff, system
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_responses")
+}
+
+// ============================================
+// TRAFFIC ATTRIBUTION (Multi-Touch Attribution)
+// ============================================
+
+model TrafficAttribution {
+  id              String  @id @default(uuid())
+  merchantId      String  @map("merchant_id")
+  fingerprintId   String  @map("fingerprint_id")
+  sessionId       String  @map("session_id")
+
+  // Touch metadata
+  touchNumber     Int     @map("touch_number")  // 1, 2, 3... sequential touch
+  isFirstTouch    Boolean @default(false) @map("is_first_touch")
+  isLastTouch     Boolean @default(false) @map("is_last_touch")
+
+  // Traffic Source
+  channel         String  // google_ads, facebook_ads, google_organic, direct, email, etc.
+  utmSource       String? @map("utm_source")
+  utmMedium       String? @map("utm_medium")
+  utmCampaign     String? @map("utm_campaign")
+  utmContent      String? @map("utm_content")
+  utmTerm         String? @map("utm_term")
+
+  // Ad click IDs
+  gclid           String?
+  fbclid          String?
+  ttclid          String?
+  msclkid         String?
+
+  // Context
+  referrer        String?
+  referrerDomain  String? @map("referrer_domain")
+  landingPage     String? @map("landing_page")
+
+  // Conversion tracking
+  hasConversion     Boolean @default(false) @map("has_conversion")
+  conversionType    String? @map("conversion_type") // add_to_cart, checkout, purchase
+  conversionValue   Decimal? @map("conversion_value") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  merchant    Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  fingerprint VisitorFingerprint @relation(fields: [fingerprintId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([fingerprintId])
+  @@index([sessionId])
+  @@index([channel])
+  @@index([utmSource])
+  @@index([utmCampaign])
+  @@index([isFirstTouch])
+  @@index([createdAt])
+  @@index([hasConversion])
+  @@map("traffic_attributions")
+}
+
+// ============================================
+// SEGMENTS (Dynamic Company Groups)
+// ============================================
+
+model Segment {
+  id          String @id @default(uuid())
+  merchantId  String @map("merchant_id")
+  name        String
+  description String?
+  color       String @default("#007aff")
+
+  // Dynamic conditions stored as JSON array
+  // Each condition: { field, operator, value }
+  // Fields: totalRevenue, totalOrders, avgOrderValue, daysSinceLastOrder,
+  //         churnRisk, upsellPotential, engagementScore, segment, buyerIntent,
+  //         totalSessions, totalProductViews, totalAddToCarts, companyStatus
+  // Operators: gt, gte, lt, lte, eq, neq, in, notIn
+  conditions  Json   @default("[]")
+
+  // Match mode: 'all' = AND, 'any' = OR
+  matchMode   String @default("all") @map("match_mode")
+
+  // Cached count of matching companies
+  companyCount Int    @default(0) @map("company_count")
+  lastEvaluatedAt DateTime? @map("last_evaluated_at")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant  Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([merchantId])
+  @@index([isActive])
+  @@map("segments")
+}
+
+// ============================================
+// CAMPAIGNS
+// ============================================
+
+model Campaign {
+  id          String @id @default(uuid())
+  merchantId  String @map("merchant_id")
+  name        String
+  description String?
+
+  // Type
+  type String @default("discount")
+  // discount | free_shipping | announcement | reorder_reminder | custom
+
+  // Status lifecycle
+  status String @default("draft")
+  // draft | scheduled | active | paused | completed | expired
+
+  // Targeting — linked to a segment
+  segmentId      String?  @map("segment_id")
+  targetAllCompanies Boolean @default(false) @map("target_all_companies")
+
+  // Offer details
+  offerType       String?  @map("offer_type")   // percentage | fixed_amount | free_shipping | none
+  offerValue      Decimal? @map("offer_value") @db.Decimal(12, 2)
+  offerMinOrder   Decimal? @map("offer_min_order") @db.Decimal(12, 2)
+  offerMessage    String?  @map("offer_message") @db.Text
+  offerCode       String?  @map("offer_code")
+
+  // Auto-create pricing rule when campaign activates
+  linkedPricingRuleId String? @unique @map("linked_pricing_rule_id")
+
+  // Schedule
+  startDate DateTime? @map("start_date")
+  endDate   DateTime? @map("end_date")
+
+  // Results tracking
+  companiesReached Int     @default(0) @map("companies_reached")
+  companiesConverted Int   @default(0) @map("companies_converted")
+  totalRevenue     Decimal @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  conversionRate   Decimal @default(0) @map("conversion_rate") @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  segment      Segment?      @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  linkedRule   PricingRule?   @relation(fields: [linkedPricingRuleId], references: [id], onDelete: SetNull)
+
+  @@index([merchantId])
+  @@index([segmentId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("campaigns")
+}
+// ============================================
+// QUOTES (Offers & Drafts)
+// ============================================
+
+model Quote {
+  id            String   @id @default(uuid())
+  merchantId    String   @map("merchant_id")
+  companyId     String   @map("company_id")
+  companyUserId String?  @map("company_user_id")
+
+  quoteNumber   String   @unique @map("quote_number")
+  status        String   @default("draft") // draft, sent, accepted, declined, converted
+
+  shopifyDraftOrderId BigInt? @map("shopify_draft_order_id")
+
+  currency      String   @default("USD")
+  subtotal      Decimal  @db.Decimal(12, 2)
+  totalDiscount Decimal  @default(0) @map("total_discount") @db.Decimal(12, 2)
+  totalTax      Decimal  @default(0) @map("total_tax") @db.Decimal(12, 2)
+  totalPrice    Decimal  @map("total_price") @db.Decimal(12, 2)
+
+  items         Json     // Array of items
+  notes         String?
+  expiresAt     DateTime? @map("expires_at")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyUser CompanyUser? @relation(fields: [companyUserId], references: [id])
+  invoices    Invoice[]
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@map("quotes")
+}
+
+// ============================================
+// INVOICES (Billing)
+// ============================================
+
+model Invoice {
+  id            String   @id @default(uuid())
+  merchantId    String   @map("merchant_id")
+  companyId     String   @map("company_id")
+  companyUserId String?  @map("company_user_id")
+  orderId       String?  @map("order_id")
+  quoteId       String?  @map("quote_id")
+
+  invoiceNumber String   @unique @map("invoice_number")
+  status        String   @default("unpaid") // unpaid, partial, paid, void, overdue
+
+  issueDate     DateTime @default(now()) @map("issue_date")
+  dueDate       DateTime? @map("due_date")
+  paidAt        DateTime? @map("paid_at")
+
+  currency      String   @default("USD")
+  subtotal      Decimal  @db.Decimal(12, 2)
+  tax           Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount   Decimal  @map("total_amount") @db.Decimal(12, 2)
+  amountPaid    Decimal  @default(0) @map("amount_paid") @db.Decimal(12, 2)
+
+  fileUrl       String?  @map("file_url") // Link to PDF if uploaded
+  notes         String?
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyUser CompanyUser? @relation(fields: [companyUserId], references: [id])
+  order       OrderLocal?  @relation(fields: [orderId], references: [id])
+  quote       Quote?       @relation(fields: [quoteId], references: [id])
+
+  @@index([merchantId])
+  @@index([companyId])
+  @@map("invoices")
+}
+
+// ============================================
+// PICKUP SHELVES (Raf Tanımları)
+// ============================================
+
+model PickupShelf {
+  id          String   @id @default(uuid())
+  merchantId  String   @map("merchant_id")
+  code        String   // A-1, B-3, C-12 etc.
+  name        String?  // "Raf A - Üst"
+  description String?  // "Sol tarafa doğru girince ilk raf"
+  isActive    Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  pickupOrders PickupOrder[]
+
+  @@unique([merchantId, code])
+  @@index([merchantId])
+  @@map("pickup_shelves")
+}
+
+// ============================================
+// PICKUP ORDERS (Sipariş-Raf-QR Eşleştirme)
+// ============================================
+
+model PickupOrder {
+  id            String   @id @default(uuid())
+  merchantId    String   @map("merchant_id")
+  orderId       String   @map("order_id")
+  companyId     String?  @map("company_id")
+  companyUserId String?  @map("company_user_id")
+  shelfId       String?  @map("shelf_id")
+
+  qrCode        String   @unique @map("qr_code")    // Benzersiz QR kodu
+  status        String   @default("pending")          // pending, processing, ready, notified, picked_up, completed
+
+  designFiles   Json?    @map("design_files")         // DripApps/CustomizerApp dosya bilgileri
+  customerEmail String?  @map("customer_email")
+  customerName  String?  @map("customer_name")
+  orderNumber   String?  @map("order_number")
+
+  assignedAt    DateTime? @map("assigned_at")         // Raf atanma zamanı
+  readyAt       DateTime? @map("ready_at")            // Hazır olma zamanı
+  notifiedAt    DateTime? @map("notified_at")         // Müşteriye bildirim zamanı
+  pickedUpAt    DateTime? @map("picked_up_at")        // Alınma zamanı
+
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  order       OrderLocal   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id])
+  companyUser CompanyUser? @relation(fields: [companyUserId], references: [id])
+  shelf       PickupShelf? @relation(fields: [shelfId], references: [id])
+
+  @@index([merchantId])
+  @@index([orderId])
+  @@index([companyId])
+  @@index([qrCode])
+  @@index([status])
+  @@map("pickup_orders")
+}

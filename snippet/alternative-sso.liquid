@@ -1,0 +1,144 @@
+<!-- 🦅 EAGLE B2B - ALTERNATIVE SSO (No Multipass Required) -->
+<!-- Works with Standard Shopify ($29/month) -->
+<!-- Add to theme.liquid before </body> -->
+
+<!-- 
+  CONFIGURATION: Use Shopify metafields for multi-tenant support
+  Set shop.metafields.eagle.api_url for your Eagle API endpoint
+-->
+
+<script>
+(function() {
+  'use strict';
+  
+  // Configuration: Use Shopify metafields for multi-tenant support
+  const EAGLE_API = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfsupply.com' }}';
+  const customer = {{ customer | json }};
+  
+  /**
+   * SHOPIFY → EAGLE SYNC
+   */
+  async function syncShopifyToEagle() {
+    if (!customer?.id) return;
+    
+    // Check if already synced (prevent duplicate calls)
+    const lastSync = localStorage.getItem('eagle_last_sync');
+    if (lastSync && (Date.now() - parseInt(lastSync)) < 60000) {
+      console.log('⏭️ Eagle: Already synced recently');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${EAGLE_API}/api/v1/auth/shopify-customer-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopifyCustomerId: customer.id.toString(),
+          email: customer.email,
+          fingerprint: getBrowserFingerprint()
+        })
+      });
+      
+      if (response.ok) {
+        const { token } = await response.json();
+        
+        // Set Eagle session cookie
+        document.cookie = `eagle_session=${token}; path=/; max-age=604800; secure; samesite=lax`;
+        localStorage.setItem('eagle_last_sync', Date.now().toString());
+        localStorage.setItem('eagle_user_email', customer.email);
+        
+        console.log('✅ Eagle: Shopify customer synced');
+      }
+    } catch (error) {
+      console.error('Eagle sync error:', error);
+    }
+  }
+  
+  /**
+   * EAGLE → SHOPIFY CONTEXT
+   */
+  async function applyEagleContext() {
+    const token = getCookie('eagle_session');
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`${EAGLE_API}/api/v1/auth/resolve`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const context = await response.json();
+        
+        // Apply B2B context to page
+        if (context.company) {
+          showCompanyBadge(context.company.name);
+          applyB2BPricing(context.pricing);
+        }
+        
+        console.log('✅ Eagle: B2B context applied');
+      }
+    } catch (error) {
+      console.error('Eagle context error:', error);
+    }
+  }
+  
+  /**
+   * Show company badge
+   */
+  function showCompanyBadge(companyName) {
+    const badge = document.createElement('div');
+    badge.style.cssText = 'position:fixed;top:10px;right:10px;background:#4CAF50;color:white;padding:8px 16px;border-radius:20px;z-index:9999;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+    badge.innerHTML = `<strong>🏢 ${companyName}</strong> | B2B Pricing Active`;
+    document.body.appendChild(badge);
+  }
+  
+  /**
+   * Apply B2B pricing
+   */
+  function applyB2BPricing(pricingRules) {
+    if (!pricingRules || pricingRules.length === 0) return;
+    
+    // Add B2B pricing badge to products
+    document.querySelectorAll('.product-item, .product-card').forEach(product => {
+      const priceElement = product.querySelector('.price, .product-price');
+      if (priceElement) {
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-success ms-2';
+        badge.textContent = '-25% B2B';
+        priceElement.appendChild(badge);
+      }
+    });
+  }
+  
+  /**
+   * Get cookie value
+   */
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+  
+  /**
+   * Browser fingerprint
+   */
+  function getBrowserFingerprint() {
+    return btoa(JSON.stringify({
+      ua: navigator.userAgent.substring(0, 100),
+      lang: navigator.language,
+      screen: `${screen.width}x${screen.height}`,
+      tz: new Date().getTimezoneOffset()
+    }));
+  }
+  
+  // Initialize on page load
+  if (customer && customer.id) {
+    syncShopifyToEagle();
+  }
+  
+  applyEagleContext();
+  
+})();
+</script>
+

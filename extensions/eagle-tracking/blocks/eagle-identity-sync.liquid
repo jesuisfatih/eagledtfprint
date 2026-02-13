@@ -1,0 +1,96 @@
+{% comment %}
+  Eagle B2B Engine — Company User Identity Sync
+  Detects logged-in B2B customers and syncs their identity with the fingerprint system.
+  This enables the admin panel to show which company user is browsing in real-time.
+{% endcomment %}
+
+{% if block.settings.enabled %}
+<script>
+  (function() {
+    var apiUrl = '{{ block.settings.api_url | default: "https://api.eagledtfsupply.com" }}';
+    var shop = '{{ shop.permanent_domain }}';
+
+    {% if customer %}
+    // Shopify customer is logged in — sync identity
+    var customerData = {
+      shopifyCustomerId: '{{ customer.id }}',
+      email: '{{ customer.email }}',
+      firstName: '{{ customer.first_name }}',
+      lastName: '{{ customer.last_name }}',
+      phone: '{{ customer.phone }}',
+      company: '{{ customer.default_address.company }}',
+      tags: {{ customer.tags | json }},
+      ordersCount: {{ customer.orders_count }},
+      totalSpent: '{{ customer.total_spent | money_without_currency }}',
+      acceptsMarketing: {{ customer.accepts_marketing }}
+    };
+
+    // Get Eagle session
+    var sessionId = '';
+    try { sessionId = sessionStorage.getItem('eagle_session_id') || ''; } catch(e) {}
+    var fp = '';
+    try { fp = localStorage.getItem('eagle_fingerprint') || ''; } catch(e) {}
+
+    // Sync identity with Eagle API
+    fetch(apiUrl + '/api/v1/fingerprint/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop: shop,
+        sessionId: sessionId,
+        fingerprintHash: fp,
+        eventType: 'identity_sync',
+        payload: customerData
+      }),
+      keepalive: true
+    }).catch(function() {});
+
+    // Store customer info for the snippet to use
+    try {
+      localStorage.setItem('eagle_customer', JSON.stringify({
+        id: customerData.shopifyCustomerId,
+        email: customerData.email,
+        name: customerData.firstName + ' ' + customerData.lastName,
+        company: customerData.company
+      }));
+    } catch(e) {}
+
+    {% if block.settings.debug_mode %}
+    console.log('🦅 Eagle B2B: Customer synced', customerData);
+    {% endif %}
+
+    {% else %}
+    // Not logged in — clear stored customer
+    try { localStorage.removeItem('eagle_customer'); } catch(e) {}
+    {% endif %}
+  })();
+</script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Eagle Identity Sync",
+  "target": "head",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable Identity Sync",
+      "default": true,
+      "info": "Sync logged-in Shopify customer data with Eagle B2B fingerprinting for identity resolution."
+    },
+    {
+      "type": "text",
+      "id": "api_url",
+      "label": "API URL",
+      "default": "https://api.eagledtfsupply.com"
+    },
+    {
+      "type": "checkbox",
+      "id": "debug_mode",
+      "label": "Debug Mode",
+      "default": false
+    }
+  ]
+}
+{% endschema %}

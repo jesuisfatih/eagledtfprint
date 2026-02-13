@@ -1,0 +1,51 @@
+services:
+  # ========== Eagle DTF Print DB ==========
+  factoryengine-dtfprint-db:
+    image: postgres:16-alpine
+    container_name: factoryengine-dtfprint-db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+    environment:
+      POSTGRES_USER: eagle_user
+      POSTGRES_PASSWORD: Eagle2025!Secure
+      POSTGRES_DB: eagle_print_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - appnet
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U eagle_user -d eagle_print_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== Eagle DTF Print App (API + Admin + Accounts) ==========
+  factoryengine-dtfprint-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: factoryengine-dtfprint-app
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.4'
+          memory: 1408M
+    depends_on:
+      factoryengine-dtfprint-db:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - appnet
+
+volumes:
+  pgdata:
+
+networks:
+  appnet:
+    external: true

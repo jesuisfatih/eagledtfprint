@@ -1,0 +1,71 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.HETZNER_SSH_KEY }}
+      
+      - name: Deploy to server
+        run: |
+          ssh -o StrictHostKeyChecking=no root@5.78.148.183 << 'ENDSSH'
+            cd /var/www/eagle || exit 1
+            
+            echo "📥 Pulling latest code..."
+            git pull origin main
+            
+            echo "📦 Installing backend dependencies..."
+            cd backend
+            npm install
+            
+            echo "🗄️  Running database migrations..."
+            npx prisma migrate deploy
+            npx prisma generate
+            
+            echo "🔨 Building backend..."
+            npm run build
+            
+            echo "📦 Installing admin dependencies..."
+            cd ../admin
+            npm install
+            npm run build
+            
+            echo "📦 Installing accounts dependencies..."
+            cd ../accounts
+            npm install
+            npm run build
+            
+            echo "📦 Building snippet..."
+            cd ../snippet
+            npm install
+            npm run build
+            cp -r dist/* /var/www/eagle/cdn/
+            
+            echo "🔄 Restarting PM2..."
+            cd ..
+            pm2 restart ecosystem.config.js --update-env
+            
+            echo "✅ Deployment complete!"
+          ENDSSH
+      
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -f https://api.eagledtfsupply.com/api/v1 || exit 1
+          echo "✅ API is responding"
+
+
+
+

@@ -1,0 +1,19 @@
+{
+  "name": "@eagle/types",
+  "version": "1.0.0",
+  "description": "Eagle B2B Platform - Shared TypeScript Types",
+  "main": "index.ts",
+  "types": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  }
+}

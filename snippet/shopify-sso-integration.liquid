@@ -1,0 +1,108 @@
+<!-- Shopify SSO Integration for Eagle B2B -->
+<!-- Add this to your theme.liquid file, before </body> -->
+
+<!-- 
+  CONFIGURATION: Use Shopify metafields for multi-tenant support
+  Set shop.metafields.eagle.api_url and shop.metafields.eagle.accounts_url
+-->
+
+<script>
+(function() {
+  'use strict';
+  
+  // Configuration: Use Shopify metafields for multi-tenant support
+  const EAGLE_API_URL = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfsupply.com' }}';
+  const EAGLE_ACCOUNTS_URL = '{{ shop.metafields.eagle.accounts_url | default: 'https://accounts.eagledtfsupply.com' }}';
+  
+  // Check if customer is logged in Shopify
+  const shopifyCustomer = {{ customer | json }};
+  
+  if (shopifyCustomer && shopifyCustomer.id) {
+    // Customer is logged in Shopify
+    // Check if logged in Eagle
+    const eagleToken = localStorage.getItem('eagle_token');
+    
+    if (!eagleToken) {
+      // Not logged in Eagle → Auto-login via SSO callback
+      fetch(`${EAGLE_API_URL}/api/v1/auth/shopify-callback?customer_id=${shopifyCustomer.id}&email=${shopifyCustomer.email}`)
+        .then(response => {
+          if (response.redirected) {
+            window.location.href = response.url;
+          }
+        })
+        .catch(console.error);
+    }
+  } else {
+    // Not logged in Shopify
+    // Check if logged in Eagle
+    const eagleToken = localStorage.getItem('eagle_token');
+    
+    if (eagleToken) {
+      // Logged in Eagle but not Shopify
+      // Get SSO URL from Eagle
+      fetch(`${EAGLE_API_URL}/api/v1/auth/user`, {
+        headers: {
+          'Authorization': `Bearer ${eagleToken}`
+        }
+      })
+      .then(r => r.json())
+      .then(user => {
+        if (user && user.email) {
+          // Generate Multipass URL
+          fetch(`${EAGLE_API_URL}/api/v1/auth/shopify-sso`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${eagleToken}`
+            },
+            body: JSON.stringify({
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              returnTo: window.location.pathname
+            })
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.ssoUrl) {
+              // Redirect to Shopify SSO
+              window.location.href = data.ssoUrl;
+            }
+          })
+          .catch(console.error);
+        }
+      })
+      .catch(console.error);
+    }
+  }
+
+  // Track cart abandonment
+  if (shopifyCustomer && shopifyCustomer.email) {
+    // Send cart data to Eagle every 30 seconds
+    setInterval(() => {
+      fetch('/cart.js')
+        .then(r => r.json())
+        .then(cart => {
+          if (cart.items && cart.items.length > 0) {
+            fetch(`${EAGLE_API_URL}/api/v1/abandoned-carts/track`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                customerEmail: shopifyCustomer.email,
+                customerId: shopifyCustomer.id,
+                cartToken: cart.token,
+                items: cart.items,
+                totalPrice: cart.total_price / 100,
+                currency: cart.currency
+              })
+            }).catch(console.error);
+          }
+        })
+        .catch(console.error);
+    }, 30000);
+  }
+})();
+</script>
+

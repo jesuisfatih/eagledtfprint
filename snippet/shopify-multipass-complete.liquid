@@ -1,0 +1,189 @@
+<!-- 🦅 EAGLE B2B - COMPLETE SHOPIFY MULTIPASS SSO -->
+<!-- Add to theme.liquid before </body> -->
+<!-- Handles: F5, Product pages, Checkout, All scenarios -->
+
+<!-- 
+  CONFIGURATION: Use Shopify metafields for multi-tenant support
+  Set shop.metafields.eagle.api_url for your Eagle API endpoint
+-->
+
+<script>
+(function() {
+  'use strict';
+  
+  // Configuration: Use Shopify metafields for multi-tenant support
+  const EAGLE_API = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfsupply.com' }}';
+  const customer = {{ customer | json }};
+  
+  /**
+   * Universal Multipass SSO Check
+   * Runs on EVERY page load (including F5, product pages, checkout)
+   */
+  async function universalSsoCheck() {
+    try {
+      const eagleToken = localStorage.getItem('eagle_token');
+      
+      // SCENARIO 1: Eagle token exists but not logged in Shopify
+      if (eagleToken && !customer) {
+        console.log('🔄 Eagle token found, Shopify not logged in → Multipass login...');
+        
+        // Get user from Eagle
+        const userResponse = await fetch(`${EAGLE_API}/api/v1/auth/user?token=${encodeURIComponent(eagleToken)}`);
+        
+        if (!userResponse.ok) {
+          console.warn('Eagle token invalid, clearing...');
+          localStorage.removeItem('eagle_token');
+          return;
+        }
+        
+        const user = await userResponse.json();
+        
+        // Get Multipass SSO URL
+        const ssoResponse = await fetch(`${EAGLE_API}/api/v1/auth/shopify-sso`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + eagleToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            returnTo: window.location.pathname + window.location.search
+          })
+        });
+        
+        if (ssoResponse.ok) {
+          const { ssoUrl } = await ssoResponse.json();
+          console.log('✅ Redirecting to Shopify Multipass login...');
+          window.location.href = ssoUrl;
+          return;
+        }
+      }
+      
+      // SCENARIO 2: Logged in Shopify but no Eagle token
+      if (customer && !eagleToken) {
+        console.log('🔄 Shopify logged in, Eagle not → Silent Eagle login...');
+        
+        // Silent Eagle authentication
+        const callbackResponse = await fetch(
+          `${EAGLE_API}/api/v1/auth/shopify-callback?customer_id=${customer.id}&email=${encodeURIComponent(customer.email)}`,
+          { credentials: 'include' }
+        );
+        
+        if (callbackResponse.ok) {
+          const data = await callbackResponse.json();
+          if (data.token) {
+            localStorage.setItem('eagle_token', data.token);
+            localStorage.setItem('eagle_userId', data.user.id);
+            localStorage.setItem('eagle_companyId', data.user.companyId);
+            console.log('✅ Silent Eagle login successful');
+          }
+        }
+      }
+      
+      // SCENARIO 3: Both logged in
+      if (customer && eagleToken) {
+        console.log('✅ Both systems logged in');
+      }
+      
+      // SCENARIO 4: Neither logged in
+      if (!customer && !eagleToken) {
+        console.log('ℹ️ No authentication on either system');
+      }
+      
+    } catch (error) {
+      console.error('Universal SSO check error:', error);
+    }
+  }
+  
+  /**
+   * Checkout Auto-Login
+   * Special handling for checkout page
+   */
+  function checkoutAutoLogin() {
+    if (window.location.pathname === '/checkout' || window.location.pathname.startsWith('/checkouts/')) {
+      const eagleToken = localStorage.getItem('eagle_token');
+      
+      if (eagleToken && !customer) {
+        console.log('🛒 Checkout page → Auto-login required');
+        // Universal check will handle this
+      }
+    }
+  }
+  
+  /**
+   * Cart Sync - Real-time
+   */
+  function syncCart() {
+    if (!customer || !customer.email) return;
+    
+    let syncTimeout;
+    
+    function scheduleSync() {
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(async () => {
+        try {
+          const cartResponse = await fetch('/cart.js');
+          const cart = await cartResponse.json();
+          
+          if (cart.items && cart.items.length > 0) {
+            await fetch(`${EAGLE_API}/api/v1/abandoned-carts/track`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerEmail: customer.email,
+                shopifyCustomerId: customer.id.toString(),
+                cartToken: cart.token,
+                items: cart.items,
+                totalPrice: cart.total_price / 100,
+                currency: cart.currency,
+                updatedAt: new Date().toISOString()
+              })
+            });
+            console.log('✅ Cart synced to Eagle');
+          }
+        } catch (err) {
+          console.error('Cart sync error:', err);
+        }
+      }, 2000);
+    }
+    
+    // Watch cart changes
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const result = originalFetch.apply(this, args);
+      if (args[0] && args[0].toString().includes('/cart')) {
+        scheduleSync();
+      }
+      return result;
+    };
+    
+    scheduleSync();
+  }
+  
+  /**
+   * Initialize on page load
+   */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      universalSsoCheck();
+      checkoutAutoLogin();
+      syncCart();
+    });
+  } else {
+    universalSsoCheck();
+    checkoutAutoLogin();
+    syncCart();
+  }
+  
+  // Re-check on visibility change (tab focus)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      universalSsoCheck();
+    }
+  });
+  
+})();
+</script>
+

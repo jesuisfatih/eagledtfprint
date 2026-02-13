@@ -1,0 +1,50 @@
+{
+  "name": "eagle-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eagle B2B Commerce Engine - Transform Shopify into B2B powerhouse",
+  "workspaces": [
+    "backend",
+    "admin",
+    "accounts",
+    "snippet"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:*\"",
+    "dev:backend": "cd backend && npm run start:dev",
+    "dev:admin": "cd admin && npm run dev",
+    "dev:accounts": "cd accounts && npm run dev",
+    "dev:snippet": "cd snippet && npm run dev",
+    "build": "npm run build:backend && npm run build:admin && npm run build:accounts && npm run build:snippet",
+    "build:backend": "cd backend && npm run build",
+    "build:admin": "cd admin && npm run build",
+    "build:accounts": "cd accounts && npm run build",
+    "build:snippet": "cd snippet && npm run build",
+    "test": "npm run test:backend",
+    "test:backend": "cd backend && npm run test",
+    "lint": "npm run lint:backend && npm run lint:admin && npm run lint:accounts",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:admin": "cd admin && npm run lint",
+    "lint:accounts": "cd accounts && npm run lint",
+    "prisma:generate": "cd backend && npx prisma generate",
+    "prisma:migrate": "cd backend && npx prisma migrate dev",
+    "prisma:studio": "cd backend && npx prisma studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jesuisfatih/eagle-engine.dev.git"
+  },
+  "author": "jesuisfatih",
+  "license": "PROPRIETARY"
+}
+
+
+
+

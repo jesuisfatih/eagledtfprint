@@ -1,0 +1,72 @@
+{% comment %}
+  Eagle B2B Engine — Fingerprint, Presence & Session Replay
+  This is a Theme App Extension block that auto-embeds into the storefront.
+  It loads the tracking snippet from CDN and initializes fingerprinting,
+  heartbeat (presence), and mouse tracking for the admin panel.
+{% endcomment %}
+
+{% if block.settings.enabled %}
+<script
+  id="eagle-b2b-snippet"
+  data-api-url="{{ block.settings.api_url }}"
+  data-shop="{{ shop.permanent_domain }}"
+  src="{{ block.settings.cdn_url | default: 'https://cdn.eagledtfsupply.com/snippet.iife.js' }}"
+  defer
+></script>
+
+{% if block.settings.debug_mode %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('🦅 Eagle B2B Extension loaded');
+    console.log('🦅 Shop:', '{{ shop.permanent_domain }}');
+    console.log('🦅 API:', '{{ block.settings.api_url }}');
+  });
+</script>
+{% endif %}
+
+{% comment %} Noscript fallback: track page view via image pixel {% endcomment %}
+<noscript>
+  <img
+    src="{{ block.settings.api_url }}/api/v1/fingerprint/pixel?shop={{ shop.permanent_domain }}&page={{ request.path | url_encode }}&t={{ 'now' | date: '%s' }}"
+    width="1" height="1" style="display:none" alt=""
+  />
+</noscript>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Eagle B2B Tracking",
+  "target": "head",
+  "javascript": "eagle-tracking.js",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable Eagle B2B Tracking",
+      "default": true,
+      "info": "Enable fingerprinting, presence tracking, and session replay on your storefront."
+    },
+    {
+      "type": "text",
+      "id": "api_url",
+      "label": "API URL",
+      "default": "https://api.eagledtfsupply.com",
+      "info": "The Eagle B2B Engine API endpoint."
+    },
+    {
+      "type": "text",
+      "id": "cdn_url",
+      "label": "Snippet CDN URL",
+      "default": "https://cdn.eagledtfsupply.com/snippet.iife.js",
+      "info": "URL of the tracking snippet JavaScript file."
+    },
+    {
+      "type": "checkbox",
+      "id": "debug_mode",
+      "label": "Debug Mode",
+      "default": false,
+      "info": "Log tracking events to the browser console."
+    }
+  ]
+}
+{% endschema %}

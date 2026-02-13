@@ -1,0 +1,130 @@
+{% comment %}
+  Eagle B2B Engine — Order Confirmation Conversion Tracking
+  Fires a conversion event when a customer completes an order.
+  This block should be placed on the order status / thank you page.
+{% endcomment %}
+
+{% if block.settings.enabled and checkout %}
+<script>
+  (function() {
+    var apiUrl = '{{ block.settings.api_url | default: "https://api.eagledtfsupply.com" }}';
+    var shop = '{{ shop.permanent_domain }}';
+
+    // Build conversion data
+    var conversionData = {
+      shop: shop,
+      orderId: '{{ checkout.order_id }}',
+      orderNumber: '{{ checkout.order_number }}',
+      totalPrice: {{ checkout.total_price | money_without_currency | remove: ',' | strip }},
+      subtotalPrice: {{ checkout.subtotal_price | money_without_currency | remove: ',' | strip }},
+      currency: '{{ checkout.currency }}',
+      itemCount: {{ checkout.line_items.size }},
+      customer: {
+        email: '{{ checkout.email }}',
+        firstName: '{{ checkout.billing_address.first_name }}',
+        lastName: '{{ checkout.billing_address.last_name }}',
+        phone: '{{ checkout.billing_address.phone }}',
+        company: '{{ checkout.billing_address.company }}',
+        city: '{{ checkout.billing_address.city }}',
+        country: '{{ checkout.billing_address.country }}',
+      },
+      items: [
+        {% for item in checkout.line_items %}
+        {
+          productId: '{{ item.product_id }}',
+          variantId: '{{ item.variant_id }}',
+          title: {{ item.title | json }},
+          quantity: {{ item.quantity }},
+          price: {{ item.price | money_without_currency | remove: ',' | strip }},
+          sku: '{{ item.sku }}'
+        }{% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ],
+      shippingAddress: {
+        company: '{{ checkout.shipping_address.company }}',
+        city: '{{ checkout.shipping_address.city }}',
+        country: '{{ checkout.shipping_address.country }}',
+        zip: '{{ checkout.shipping_address.zip }}'
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    // Get session data
+    var sessionId = '';
+    try {
+      sessionId = sessionStorage.getItem('eagle_session_id') || localStorage.getItem('eagle_session_id') || '';
+    } catch(e) {}
+
+    var fingerprintHash = '';
+    try {
+      fingerprintHash = localStorage.getItem('eagle_fingerprint') || '';
+    } catch(e) {}
+
+    // Send conversion
+    fetch(apiUrl + '/api/v1/fingerprint/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop: shop,
+        sessionId: sessionId,
+        fingerprintHash: fingerprintHash,
+        eventType: 'purchase',
+        payload: conversionData
+      }),
+      keepalive: true
+    }).catch(function() {});
+
+    // Also send offline heartbeat
+    fetch(apiUrl + '/api/v1/fingerprint/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop: shop,
+        sessionId: sessionId,
+        fingerprintHash: fingerprintHash,
+        status: 'online',
+        timestamp: Date.now(),
+        page: {
+          url: window.location.href,
+          path: '/checkout/thank-you',
+          title: 'Order Confirmation',
+          referrer: ''
+        }
+      }),
+      keepalive: true
+    }).catch(function() {});
+
+    {% if block.settings.debug_mode %}
+    console.log('🦅 Eagle B2B: Conversion tracked', conversionData);
+    {% endif %}
+  })();
+</script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Eagle Order Tracking",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable Order Tracking",
+      "default": true,
+      "info": "Track completed orders and attribute them to fingerprinted visitors."
+    },
+    {
+      "type": "text",
+      "id": "api_url",
+      "label": "API URL",
+      "default": "https://api.eagledtfsupply.com"
+    },
+    {
+      "type": "checkbox",
+      "id": "debug_mode",
+      "label": "Debug Mode",
+      "default": false
+    }
+  ]
+}
+{% endschema %}
