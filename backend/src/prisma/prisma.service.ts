@@ -178,12 +178,31 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       await this.$connect();
       this.logger.log('✅ Database connected successfully');
 
-      // Auto-sync merchant access token from env (env is source of truth)
-      // BUT skip if env token is a placeholder — OAuth-obtained tokens in DB take priority
       const envToken = this.config.get<string>('SHOPIFY_ACCESS_TOKEN');
       const envDomain = this.config.get<string>('SHOPIFY_STORE_DOMAIN');
       const isPlaceholder = !envToken || ['PLACEHOLDER', 'temp', 'YOUR_TOKEN_HERE'].includes(envToken);
-      if (!isPlaceholder && envDomain) {
+
+      // Auto-seed merchant if none exists in DB
+      // This ensures the system works immediately after migration
+      const existingMerchant = await this.prisma.merchant.findFirst();
+      if (!existingMerchant && envDomain) {
+        try {
+          const tokenToUse = isPlaceholder ? 'awaiting-oauth' : envToken;
+          await this.prisma.merchant.create({
+            data: {
+              shopDomain: envDomain,
+              accessToken: tokenToUse,
+              scope: this.config.get<string>('SHOPIFY_SCOPES', ''),
+              status: 'active',
+              settings: {},
+            },
+          });
+          this.logger.log(`🏪 Auto-seeded merchant for ${envDomain} (token: ${isPlaceholder ? 'awaiting OAuth' : 'from env'})`);
+        } catch (seedErr) {
+          this.logger.warn('⚠️ Could not auto-seed merchant', seedErr);
+        }
+      } else if (existingMerchant && !isPlaceholder && envDomain) {
+        // Auto-sync merchant access token from env (env is source of truth)
         try {
           const merchant = await this.prisma.merchant.findFirst({
             where: { shopDomain: envDomain },
@@ -203,7 +222,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
         } catch (tokenErr) {
           this.logger.warn('⚠️ Could not sync merchant token from env', tokenErr);
         }
-      } else if (isPlaceholder) {
+      } else if (isPlaceholder && existingMerchant) {
         this.logger.log('ℹ️ Skipping env token sync — env token is placeholder, using DB token');
       }
     } catch (error) {

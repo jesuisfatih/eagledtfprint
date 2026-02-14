@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Headers, HttpStatus, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpStatus, Logger, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
+import * as bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
@@ -30,6 +31,9 @@ import { ShopifyOauthService } from './shopify-oauth.service';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
   private readonly adminUrl: string;
+  /** Env-based fallback credentials (used only when DB has no admin credentials yet) */
+  private readonly envAdminUsername: string;
+  private readonly envAdminPassword: string;
 
   constructor(
     private authService: AuthService,
@@ -44,16 +48,14 @@ export class AuthController {
     private jwtService: JwtService,
   ) {
     this.adminUrl = this.config.get<string>('ADMIN_URL', '');
-    this.adminUsername = this.config.get<string>('ADMIN_USERNAME', 'admin');
-    this.adminPassword = this.config.get<string>('ADMIN_PASSWORD', 'eagle2025');
+    this.envAdminUsername = this.config.get<string>('ADMIN_USERNAME', 'admin');
+    this.envAdminPassword = this.config.get<string>('ADMIN_PASSWORD', 'eagle2025');
   }
 
-  private readonly adminUsername: string;
-  private readonly adminPassword: string;
-
   /**
-   * Admin panel login - simple username/password auth
-   * Returns JWT with merchantId for API access
+   * Admin panel login
+   * Credentials checked in order: DB (merchant.settings) → ENV fallback → hardcoded default
+   * On first successful login with env/default creds, they are persisted to DB automatically.
    * Rate limited: 5 attempts per 60 seconds to prevent brute force
    */
   @Public()
@@ -64,13 +66,6 @@ export class AuthController {
     @Res() res: Response,
   ) {
     try {
-      // Validate credentials
-      if (dto.username !== this.adminUsername || dto.password !== this.adminPassword) {
-        return res.status(HttpStatus.UNAUTHORIZED).json({
-          message: 'Invalid credentials',
-        });
-      }
-
       // Get the merchant (single-tenant for now)
       const merchant = await this.prisma.merchant.findFirst({
         where: { status: 'active' },
@@ -78,8 +73,50 @@ export class AuthController {
 
       if (!merchant) {
         return res.status(HttpStatus.NOT_FOUND).json({
-          message: 'No merchant configured',
+          message: 'No merchant configured. Please install the Shopify app first.',
         });
+      }
+
+      // Read admin credentials from DB settings
+      const settings = (merchant.settings as any) || {};
+      const dbAdminEmail = settings.adminEmail;
+      const dbAdminPasswordHash = settings.adminPasswordHash;
+
+      let credentialsValid = false;
+      let shouldPersistToDB = false;
+
+      if (dbAdminEmail && dbAdminPasswordHash) {
+        // DB credentials exist — validate against them
+        credentialsValid = dto.username === dbAdminEmail &&
+          await bcrypt.compare(dto.password, dbAdminPasswordHash);
+      } else {
+        // No DB credentials yet — use env fallback
+        credentialsValid = dto.username === this.envAdminUsername &&
+          dto.password === this.envAdminPassword;
+        if (credentialsValid) {
+          shouldPersistToDB = true; // Auto-persist on first successful login
+        }
+      }
+
+      if (!credentialsValid) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          message: 'Invalid credentials',
+        });
+      }
+
+      // Auto-persist env credentials to DB on first login
+      if (shouldPersistToDB) {
+        try {
+          const hash = await bcrypt.hash(this.envAdminPassword, 10);
+          const updatedSettings = { ...settings, adminEmail: this.envAdminUsername, adminPasswordHash: hash };
+          await this.prisma.merchant.update({
+            where: { id: merchant.id },
+            data: { settings: updatedSettings },
+          });
+          this.logger.log('🔑 [ADMIN_LOGIN] Admin credentials persisted to DB from env');
+        } catch (persistErr: any) {
+          this.logger.warn(`⚠️ Could not persist admin creds to DB: ${persistErr.message}`);
+        }
       }
 
       // Generate JWT with merchantId
@@ -104,6 +141,85 @@ export class AuthController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         message: 'Login failed',
       });
+    }
+  }
+
+  /**
+   * Change admin credentials — requires current password
+   * Stores new email + bcrypt-hashed password in merchant.settings
+   */
+  @UseGuards(JwtAuthGuard)
+  @Put('admin-credentials')
+  async updateAdminCredentials(
+    @Body() body: { currentPassword: string; newEmail?: string; newPassword?: string },
+    @CurrentUser('merchantId') merchantId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      if (!merchantId) {
+        return res.status(HttpStatus.BAD_REQUEST).json({ message: 'Merchant ID required' });
+      }
+
+      const merchant = await this.prisma.merchant.findUnique({ where: { id: merchantId } });
+      if (!merchant) {
+        return res.status(HttpStatus.NOT_FOUND).json({ message: 'Merchant not found' });
+      }
+
+      const settings = (merchant.settings as any) || {};
+      const dbAdminEmail = settings.adminEmail;
+      const dbAdminPasswordHash = settings.adminPasswordHash;
+
+      // Verify current password
+      let currentPasswordValid = false;
+      if (dbAdminPasswordHash) {
+        currentPasswordValid = await bcrypt.compare(body.currentPassword, dbAdminPasswordHash);
+      } else {
+        currentPasswordValid = body.currentPassword === this.envAdminPassword;
+      }
+
+      if (!currentPasswordValid) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({ message: 'Current password is incorrect' });
+      }
+
+      // Update
+      const newEmail = body.newEmail || dbAdminEmail || this.envAdminUsername;
+      const newHash = body.newPassword
+        ? await bcrypt.hash(body.newPassword, 10)
+        : dbAdminPasswordHash || await bcrypt.hash(this.envAdminPassword, 10);
+
+      const updatedSettings = { ...settings, adminEmail: newEmail, adminPasswordHash: newHash };
+      await this.prisma.merchant.update({
+        where: { id: merchantId },
+        data: { settings: updatedSettings },
+      });
+
+      this.logger.log(`🔑 [ADMIN_CREDS] Admin credentials updated for merchant ${merchantId}`);
+
+      return res.json({ success: true, message: 'Admin credentials updated successfully', adminEmail: newEmail });
+    } catch (error: any) {
+      this.logger.error(`❌ [ADMIN_CREDS] Failed: ${error.message}`);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to update credentials' });
+    }
+  }
+
+  /**
+   * Get current admin email (for settings page display)
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('admin-credentials')
+  async getAdminCredentials(
+    @CurrentUser('merchantId') merchantId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const merchant = await this.prisma.merchant.findUnique({ where: { id: merchantId } });
+      if (!merchant) {
+        return res.status(HttpStatus.NOT_FOUND).json({ message: 'Merchant not found' });
+      }
+      const settings = (merchant.settings as any) || {};
+      return res.json({ adminEmail: settings.adminEmail || this.envAdminUsername });
+    } catch (error: any) {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to get credentials' });
     }
   }
 
