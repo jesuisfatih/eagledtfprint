@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
 import { publicFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -132,7 +133,7 @@ export default function ForgotPasswordPage() {
 
             {/* Footer */}
             <p className="text-center text-white-50 mt-4 small">
-              © 2025 Eagle DTF Supply. All rights reserved.
+              © {new Date().getFullYear()} {config.brandName}. All rights reserved.
             </p>
           </div>
         </div>

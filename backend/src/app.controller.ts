@@ -18,7 +18,7 @@ export class AppController {
   @Get()
   @Public()
   getRoot(@Query('shop') shop: string, @Query('host') host: string, @Res() res: Response) {
-    const adminUrl = this.config.get<string>('ADMIN_URL', 'https://app.eagledtfsupply.com');
+    const adminUrl = this.config.get<string>('ADMIN_URL', '');
 
     // If loaded inside Shopify admin (has host param), show embedded app page
     if (host || shop) {

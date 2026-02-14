@@ -171,9 +171,11 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('✅ Database connected successfully');
 
       // Auto-sync merchant access token from env (env is source of truth)
+      // BUT skip if env token is a placeholder — OAuth-obtained tokens in DB take priority
       const envToken = this.config.get<string>('SHOPIFY_ACCESS_TOKEN');
       const envDomain = this.config.get<string>('SHOPIFY_STORE_DOMAIN');
-      if (envToken && envDomain) {
+      const isPlaceholder = !envToken || ['PLACEHOLDER', 'temp', 'YOUR_TOKEN_HERE'].includes(envToken);
+      if (!isPlaceholder && envDomain) {
         try {
           const merchant = await this.prisma.merchant.findFirst({
             where: { shopDomain: envDomain },
@@ -193,6 +195,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
         } catch (tokenErr) {
           this.logger.warn('⚠️ Could not sync merchant token from env', tokenErr);
         }
+      } else if (isPlaceholder) {
+        this.logger.log('ℹ️ Skipping env token sync — env token is placeholder, using DB token');
       }
     } catch (error) {
       this.logger.error('❌ Failed to connect to database', error);

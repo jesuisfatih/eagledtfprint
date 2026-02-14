@@ -1,12 +1,12 @@
-import { Injectable, UnauthorizedException, Logger, Inject, forwardRef } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
 import { ShopifyRestService } from '../shopify/shopify-rest.service';
-import { MailService } from '../mail/mail.service';
-import { RedisService } from '../redis/redis.service';
-import * as bcrypt from 'bcrypt';
 
 export interface JwtPayload {
   sub: string;
@@ -128,7 +128,7 @@ export class AuthService {
 
     // Verify password with bcrypt
     const isPasswordValid = await this.comparePasswords(password, user.passwordHash);
-    
+
     if (!isPasswordValid) {
       return null;
     }
@@ -156,16 +156,16 @@ export class AuthService {
   async createUserFromShopify(data: { email: string; shopifyCustomerId: string; merchantId?: string }): Promise<any> {
     // Find or create a default company for Shopify customers
     let companyId: string;
-    
+
     if (data.merchantId) {
       // Find or create default company for this merchant
       let company = await this.prisma.company.findFirst({
-        where: { 
+        where: {
           merchantId: data.merchantId,
           name: 'Shopify Customers',
         },
       });
-      
+
       if (!company) {
         company = await this.prisma.company.create({
           data: {
@@ -184,7 +184,7 @@ export class AuthService {
       }
       companyId = company.id;
     }
-    
+
     return this.prisma.companyUser.create({
       data: {
         email: data.email,
@@ -250,7 +250,7 @@ export class AuthService {
 
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Store code in Redis with 10 minute expiry
     const verificationKey = `email_verification:${email}`;
     try {
@@ -259,7 +259,7 @@ export class AuthService {
       this.logger.warn('Redis not available, using in-memory fallback');
       // Fallback: In development, we'll still work
     }
-    
+
     // Send email
     await this.mailService.sendVerificationCode(email, code);
 
@@ -276,22 +276,22 @@ export class AuthService {
    */
   async verifyEmailCode(email: string, code: string): Promise<boolean> {
     const verificationKey = `email_verification:${email}`;
-    
+
     try {
       const storedCode = await this.redisService.get(verificationKey);
-      
+
       if (storedCode === code) {
         // Delete code after successful verification
         await this.redisService.del(verificationKey);
         return true;
       }
-      
+
       // Fallback for development if Redis fails
       if (process.env.NODE_ENV === 'development' && code.length === 6 && /^\d+$/.test(code)) {
         this.logger.warn('Redis verification failed, using development fallback');
         return true;
       }
-      
+
       return false;
     } catch (redisError) {
       // Fallback for development
@@ -387,7 +387,7 @@ export class AuthService {
         shopifyCustomerId: shopifyResult?.id,
         email: user.email,
       });
-      
+
       // Reload user to get Shopify ID
       const userWithShopify = await this.prisma.companyUser.findUnique({
         where: { id: user.id },
@@ -619,14 +619,14 @@ export class AuthService {
     // Sync user to Shopify after registration
     try {
       this.logger.log(`🔄 [ACCEPT_INVITATION] Starting Shopify sync for user ${updatedUser.email} (ID: ${updatedUser.id})`);
-      
+
       // Sync user to Shopify
       const shopifyCustomer = await this.shopifyCustomerSync.syncUserToShopify(updatedUser.id);
       this.logger.log(`✅ [ACCEPT_INVITATION] User ${updatedUser.email} synced to Shopify successfully`, {
         shopifyCustomerId: shopifyCustomer?.id,
         email: updatedUser.email,
       });
-      
+
       // Reload user to get Shopify customer ID
       const userWithShopify = await this.prisma.companyUser.findUnique({
         where: { id: updatedUser.id },
@@ -775,8 +775,9 @@ export class AuthService {
     await this.redisService.set(redisKey, resetToken, 3600);
 
     // Send password reset email
-    const resetUrl = `https://accounts.eagledtfsupply.com/reset-password?token=${resetToken}`;
-    
+    const accountsUrl = this.config.get<string>('ACCOUNTS_URL', '');
+    const resetUrl = `${accountsUrl}/reset-password?token=${resetToken}`;
+
     try {
       await this.mailService.sendPasswordReset(user.email, resetUrl);
       this.logger.log(`✅ [PASSWORD_RESET] Reset email sent to ${email}`);
@@ -795,7 +796,7 @@ export class AuthService {
     try {
       // Verify token
       const decoded = await this.jwtService.verifyAsync(token);
-      
+
       if (!decoded.sub || decoded.type !== 'password_reset') {
         return { success: false, message: 'Invalid reset token' };
       }
@@ -803,7 +804,7 @@ export class AuthService {
       // Check if token is in Redis (one-time use)
       const redisKey = `password_reset:${decoded.sub}`;
       const storedToken = await this.redisService.get(redisKey);
-      
+
       if (!storedToken || storedToken !== token) {
         return { success: false, message: 'Reset token has expired or already been used' };
       }
@@ -826,6 +827,3 @@ export class AuthService {
     }
   }
 }
-
-
-

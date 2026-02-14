@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com';
+import { config } from './config';
+
+const API_URL = config.apiUrl;
 
 class AccountsApiClient {
   private baseUrl: string;
@@ -6,7 +8,7 @@ class AccountsApiClient {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
-    
+
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('eagle_token');
     }
@@ -132,19 +134,19 @@ export const accountsApi = new AccountsApiClient(API_URL);
 
 // Helper function for authenticated fetch - similar to adminFetch
 export async function accountsFetch(endpoint: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' 
-    ? localStorage.getItem('eagle_token') 
+  const token = typeof window !== 'undefined'
+    ? localStorage.getItem('eagle_token')
     : null;
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-  
+
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
-  
+
   return fetch(`${API_URL}${endpoint}`, { ...options, headers });
 }
 
@@ -154,7 +156,7 @@ export async function publicFetch(endpoint: string, options: RequestInit = {}) {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-  
+
   return fetch(`${API_URL}${endpoint}`, { ...options, headers });
 }
 
@@ -162,7 +164,3 @@ export async function publicFetch(endpoint: string, options: RequestInit = {}) {
 export function getApiUrl() {
   return API_URL;
 }
-
-
-
-

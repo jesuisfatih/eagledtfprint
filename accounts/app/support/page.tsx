@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Modal from '@/components/Modal';
 import { accountsFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import { formatRelativeTime } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
 interface SupportTicket {
   id: string;
@@ -32,7 +33,7 @@ export default function SupportPage() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
   const [resultModal, setResultModal] = useState<{show: boolean; message: string; type: 'success' | 'error'}>({show: false, message: '', type: 'success'});
-  
+
   const [formData, setFormData] = useState({
     subject: '',
     message: '',
@@ -49,7 +50,7 @@ export default function SupportPage() {
       setLoading(true);
       const userId = localStorage.getItem('eagle_userId') || '';
       const response = await accountsFetch(`/api/v1/support-tickets?userId=${userId}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         setTickets(Array.isArray(data) ? data : data.tickets || []);
@@ -63,12 +64,12 @@ export default function SupportPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       setSubmitting(true);
       const userId = localStorage.getItem('eagle_userId') || '';
       const companyId = localStorage.getItem('eagle_companyId') || '';
-      
+
       const response = await accountsFetch('/api/v1/support-tickets', {
         method: 'POST',
         body: JSON.stringify({
@@ -77,7 +78,7 @@ export default function SupportPage() {
           companyId,
         }),
       });
-      
+
       if (response.ok) {
         setResultModal({show: true, message: '✅ Support request submitted successfully! We will get back to you soon.', type: 'success'});
         setFormData({subject: '', message: '', priority: 'medium', category: 'other'});
@@ -126,8 +127,8 @@ export default function SupportPage() {
   };
 
   // Filter tickets
-  const filteredTickets = filter === 'all' 
-    ? tickets 
+  const filteredTickets = filter === 'all'
+    ? tickets
     : tickets.filter(t => t.status === filter);
 
   // Stats
@@ -210,7 +211,7 @@ export default function SupportPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {categories.map(cat => (
                       <div key={cat.key}>
-                        <div 
+                        <div
                           className="card"
                           style={{ cursor: 'pointer', borderColor: formData.category === cat.key ? 'var(--accent)' : undefined, background: formData.category === cat.key ? 'var(--bg-secondary)' : undefined }}
                           onClick={() => setFormData(prev => ({...prev, category: cat.key}))}
@@ -229,19 +230,19 @@ export default function SupportPage() {
 
                 <div className="form-group" style={{ marginBottom: 16 }}>
                   <label className="form-label">Subject *</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
+                  <input
+                    type="text"
+                    className="form-input"
                     value={formData.subject}
                     onChange={(e) => setFormData(prev => ({...prev, subject: e.target.value}))}
                     placeholder="Brief description of your issue"
-                    required 
+                    required
                   />
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 16 }}>
                   <label className="form-label">Priority</label>
-                  <select 
+                  <select
                     className="form-input"
                     value={formData.priority}
                     onChange={(e) => setFormData(prev => ({...prev, priority: e.target.value as any}))}
@@ -255,9 +256,9 @@ export default function SupportPage() {
 
                 <div className="form-group" style={{ marginBottom: 16 }}>
                   <label className="form-label">Message *</label>
-                  <textarea 
-                    className="form-input" 
-                    rows={4} 
+                  <textarea
+                    className="form-input"
+                    rows={4}
                     value={formData.message}
                     onChange={(e) => setFormData(prev => ({...prev, message: e.target.value}))}
                     placeholder="Please describe your issue in detail..."
@@ -265,8 +266,8 @@ export default function SupportPage() {
                   ></textarea>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn-apple btn-apple-primary"
                   style={{ width: '100%' }}
                   disabled={submitting || !formData.subject || !formData.message}
@@ -293,7 +294,7 @@ export default function SupportPage() {
           <div className="card">
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h5 className="card-title" style={{ margin: 0 }}>Your Tickets</h5>
-              <button 
+              <button
                 className="btn-apple btn-apple-secondary"
                 onClick={loadTickets}
                 disabled={loading}
@@ -301,7 +302,7 @@ export default function SupportPage() {
                 <i className="ti ti-refresh" style={{ marginRight: 4 }}></i>Refresh
               </button>
             </div>
-            
+
             {/* Filters */}
             <div className="card-body" style={{ borderBottom: '1px solid var(--border)', padding: '8px 16px' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -321,7 +322,7 @@ export default function SupportPage() {
                 ))}
               </div>
             </div>
-            
+
             <div className="card-body">
               {loading ? (
                 <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -333,8 +334,8 @@ export default function SupportPage() {
                   <i className="ti ti-ticket-off ti-3x" style={{ color: 'var(--text-secondary)', marginBottom: 16, display: 'block' }}></i>
                   <h5>No tickets found</h5>
                   <p style={{ color: 'var(--text-secondary)' }}>
-                    {filter === 'all' 
-                      ? 'Submit a request using the form' 
+                    {filter === 'all'
+                      ? 'Submit a request using the form'
                       : 'No tickets with this status'
                     }
                   </p>
@@ -344,10 +345,10 @@ export default function SupportPage() {
                   {filteredTickets.map((ticket) => {
                     const statusConfig = getStatusConfig(ticket.status);
                     const priorityConfig = getPriorityConfig(ticket.priority);
-                    
+
                     return (
-                      <div 
-                        key={ticket.id} 
+                      <div
+                        key={ticket.id}
                         className="list-group-item list-group-item-action"
                         style={{ cursor: 'pointer', background: selectedTicket?.id === ticket.id ? 'var(--bg-secondary)' : undefined }}
                         onClick={() => setSelectedTicket(selectedTicket?.id === ticket.id ? null : ticket)}
@@ -377,20 +378,20 @@ export default function SupportPage() {
                           </div>
                           <i className={`ti ti-chevron-${selectedTicket?.id === ticket.id ? 'up' : 'down'}`} style={{ color: 'var(--text-secondary)' }}></i>
                         </div>
-                        
+
                         {/* Expanded Detail */}
                         {selectedTicket?.id === ticket.id && (
                           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                             <h6 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 8 }}>Full Message:</h6>
                             <p style={{ marginBottom: 16 }}>{ticket.message}</p>
-                            
+
                             {ticket.replies && ticket.replies.length > 0 && (
                               <>
                                 <h6 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 8 }}>Replies:</h6>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                   {ticket.replies.map(reply => (
-                                    <div 
-                                      key={reply.id} 
+                                    <div
+                                      key={reply.id}
                                       style={{ padding: 8, borderRadius: 8, background: reply.isStaff ? 'var(--bg-secondary)' : 'var(--bg-secondary)' }}
                                     >
                                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -405,7 +406,7 @@ export default function SupportPage() {
                                 </div>
                               </>
                             )}
-                            
+
                             <div style={{ marginTop: 16, textAlign: 'right' }}>
                               <small style={{ color: 'var(--text-secondary)' }}>
                                 Last updated: {formatRelativeTime(ticket.updatedAt)}
@@ -436,8 +437,8 @@ export default function SupportPage() {
               </div>
               <div>
                 <small style={{ color: 'var(--text-secondary)', display: 'block' }}>Email</small>
-                <a href="mailto:support@eagledtfsupply.com" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                  support@eagledtfsupply.com
+                <a href={`mailto:${config.supportEmail}`} style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {config.supportEmail}
                 </a>
               </div>
             </div>
@@ -538,4 +539,3 @@ export default function SupportPage() {
     </div>
   );
 }
-

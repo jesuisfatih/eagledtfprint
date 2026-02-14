@@ -1,16 +1,16 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import {
-  WebSocketGateway,
-  WebSocketServer,
-  SubscribeMessage,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  ConnectedSocket,
-  MessageBody,
+    ConnectedSocket,
+    MessageBody,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    SubscribeMessage,
+    WebSocketGateway,
+    WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -29,7 +29,7 @@ interface NotificationPayload {
 
 /**
  * WebSocket Gateway for Real-time Notifications
- * 
+ *
  * Handles:
  * - User connection with JWT authentication
  * - Room-based notifications (per user, company, merchant)
@@ -40,8 +40,8 @@ interface NotificationPayload {
 @WebSocketGateway({
   cors: {
     origin: [
-      'https://accounts.eagledtfsupply.com',
-      'https://app.eagledtfsupply.com',
+      process.env.ACCOUNTS_URL || 'http://localhost:3000',
+      process.env.ADMIN_URL || 'http://localhost:3001',
       'http://localhost:3000',
       'http://localhost:3001',
     ],
@@ -68,7 +68,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   async handleConnection(client: AuthenticatedSocket) {
     try {
       const token = this.extractToken(client);
-      
+
       if (!token) {
         this.logger.warn(`Client ${client.id} attempted connection without token`);
         client.disconnect();
@@ -76,7 +76,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       }
 
       const payload = await this.verifyToken(token);
-      
+
       if (!payload) {
         this.logger.warn(`Client ${client.id} provided invalid token`);
         client.disconnect();
@@ -223,7 +223,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       approved: 'Your quote has been approved',
       rejected: 'Your quote has been rejected',
     };
-    
+
     const notification: NotificationPayload = {
       id: `quote-${quoteId}-${Date.now()}`,
       type: 'quote',

@@ -1,6 +1,7 @@
 'use client';
 
 import { publicFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -65,7 +66,7 @@ export default function LoginPage() {
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div className="login-logo">🦅</div>
             <h2 className="login-title">Welcome back</h2>
-            <p className="login-subtitle">Sign in to your Eagle B2B account</p>
+            <p className="login-subtitle">Sign in to your {config.brandName} account</p>
           </div>
 
           {/* Error Alert */}
@@ -201,7 +202,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <p style={{ position: 'absolute', bottom: 24, left: 0, right: 0, textAlign: 'center', color: 'var(--text-quaternary)', fontSize: 12 }}>
-        © 2026 Eagle DTF Supply. All rights reserved.
+        © {new Date().getFullYear()} {config.brandName}. All rights reserved.
       </p>
     </div>
   );

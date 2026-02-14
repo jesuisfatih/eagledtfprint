@@ -2,6 +2,7 @@
 
 import { PageHeader, showToast } from '@/components/ui';
 import { adminFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import { useCallback, useEffect, useState } from 'react';
 
 interface Product {
@@ -372,7 +373,7 @@ export default function CatalogPage() {
                 </a>
               )}
               {selected.shopifyProductId && (
-                <a href={`https://admin.shopify.com/store/eagledtfsupply/products/${selected.shopifyProductId}`}
+                <a href={`${config.shopifyAdminBaseUrl}/products/${selected.shopifyProductId}`}
                   target="_blank" rel="noopener noreferrer" className="btn-apple secondary" style={{ textDecoration: 'none' }}>
                   <i className="ti ti-external-link" style={{ marginRight: 4 }} />Shopify Admin
                 </a>

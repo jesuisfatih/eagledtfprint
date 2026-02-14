@@ -12,7 +12,8 @@ automatically_update_urls_on_dev = true
 api_version = "2025-01"
 
 [access_scopes]
-scopes = "read_products,write_products,read_orders,write_orders,read_customers,write_customers,read_themes,write_themes,read_content,write_content,read_inventory,write_inventory,read_shipping,write_shipping,write_price_rules,write_discounts"
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_content,read_customers,read_inventory,read_orders,read_products,read_shipping,read_themes,write_content,write_customers,write_discounts,write_inventory,write_orders,write_price_rules,write_products,write_shipping,write_themes"
 
 [auth]
 redirect_urls = [

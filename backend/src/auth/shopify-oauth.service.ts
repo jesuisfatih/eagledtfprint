@@ -1,9 +1,9 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
 import axios from 'axios';
 import * as crypto from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface ShopifyCallbackParams {
   shop: string;
@@ -11,6 +11,7 @@ interface ShopifyCallbackParams {
   hmac: string;
   timestamp: string;
   state: string;
+  [key: string]: string; // Allow additional params like 'host'
 }
 
 @Injectable()
@@ -60,6 +61,7 @@ export class ShopifyOauthService {
       .update(queryString)
       .digest('hex');
 
+    this.logger.debug(`HMAC verify: computed=${hash}, received=${hmac}, match=${hash === hmac}`);
     return hash === hmac;
   }
 
@@ -138,7 +140,7 @@ export class ShopifyOauthService {
       shopDomain: merchant.shopDomain,
       type: 'merchant',
     };
-    
+
     const jwtToken = this.jwtService.sign(jwtPayload);
 
     return {
@@ -147,6 +149,3 @@ export class ShopifyOauthService {
     };
   }
 }
-
-
-

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { config } from './config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com';
+const API_URL = config.apiUrl;
 const WS_URL = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 export interface Notification {
@@ -69,10 +70,10 @@ export function useNotifications(onNotification?: NotificationCallback): UseNoti
               ...data,
               createdAt: new Date(data.createdAt),
             };
-            
+
             setNotifications(prev => [notification, ...prev].slice(0, 50));
             setUnreadCount(prev => prev + 1);
-            
+
             if (onNotification) {
               onNotification(notification);
             }
@@ -135,7 +136,7 @@ export function useNotifications(onNotification?: NotificationCallback): UseNoti
       prev.map(n => (n.id === id ? { ...n, read: true } : n))
     );
     setUnreadCount(prev => Math.max(0, prev - 1));
-    
+
     // Also call API to persist
     const token = localStorage.getItem('eagle_token');
     if (token) {
@@ -152,7 +153,7 @@ export function useNotifications(onNotification?: NotificationCallback): UseNoti
   const markAllAsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
-    
+
     // Also call API to persist
     const token = localStorage.getItem('eagle_token');
     if (token) {

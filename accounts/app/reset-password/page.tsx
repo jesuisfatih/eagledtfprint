@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { publicFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -215,7 +216,7 @@ function ResetPasswordForm() {
 
             {/* Footer */}
             <p className="text-center text-white-50 mt-4 small">
-              © 2025 Eagle DTF Supply. All rights reserved.
+              © {new Date().getFullYear()} {config.brandName}. All rights reserved.
             </p>
           </div>
         </div>

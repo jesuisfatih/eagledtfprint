@@ -38,7 +38,7 @@ export class ShopifyCustomersService {
         insight: true,
       } as any,
       orderBy: { syncedAt: 'desc' },
-      take: 100,
+      take: 1000,
     });
 
     // Convert BigInt to string for JSON serialization

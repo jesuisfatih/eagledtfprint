@@ -1,0 +1,43 @@
+# Eagle Engine - All-in-One Container (EagleDTFPrint)
+FROM node:20-slim AS base
+WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pm2
+
+# Copy monorepo contents
+COPY accounts ./accounts
+COPY admin ./admin
+COPY backend ./backend
+COPY shared ./shared
+COPY package.json package-lock.json ./
+
+# Install dependencies for each service
+RUN cd /app/backend && npm install
+RUN cd /app/admin && npm install
+RUN cd /app/accounts && npm install
+
+# Generate Prisma client
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+RUN cd /app/backend && npx prisma generate
+
+# Set NEXT_PUBLIC env vars for frontend builds
+ENV NEXT_PUBLIC_API_URL=https://api.eagledtfprint.com
+ENV NEXT_PUBLIC_ACCOUNTS_URL=https://accounts.eagledtfprint.com
+ENV NEXT_PUBLIC_ADMIN_URL=https://app.eagledtfprint.com
+
+# Build each service
+RUN cd /app/backend && npm run build
+RUN cd /app/admin && npm run build
+RUN cd /app/accounts && npm run build
+
+# PM2 ecosystem config
+RUN echo '{\
+  "apps": [\
+    {"name":"eagle-api","cwd":"/app/backend","script":"node","args":"dist/src/main.js","env":{"NODE_ENV":"production","PORT":"4000"}},\
+    {"name":"eagle-admin","cwd":"/app/admin","script":"npm","args":"start","env":{"NODE_ENV":"production","PORT":"3000"}},\
+    {"name":"eagle-accounts","cwd":"/app/accounts","script":"npm","args":"start","env":{"NODE_ENV":"production","PORT":"3001"}}\
+  ]\
+}' > /app/ecosystem.config.json
+
+EXPOSE 3000 3001 4000
+CMD ["pm2-runtime", "/app/ecosystem.config.json"]

@@ -1,5 +1,6 @@
 'use client';
 
+import { config } from '@/lib/config';
 import { useState } from 'react';
 
 export default function SnippetTester() {
@@ -7,7 +8,8 @@ export default function SnippetTester() {
 
   const testSnippet = async () => {
     try {
-      const response = await fetch('https://cdn.eagledtfsupply.com/snippet.iife.js');
+      const cdnUrl = config.cdnUrl;
+      const response = await fetch(`${cdnUrl}/snippet.iife.js`);
       if (response.ok) {
         const code = await response.text();
         setTestResult(`✅ Snippet loaded successfully (${code.length} bytes)`);
@@ -38,4 +40,3 @@ export default function SnippetTester() {
     </div>
   );
 }
-

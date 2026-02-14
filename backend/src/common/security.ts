@@ -1,12 +1,12 @@
 /**
  * Security Configuration for Eagle B2B Platform
- * 
+ *
  * This module provides security utilities and configurations
  * for protecting the API against common vulnerabilities.
  */
 
-import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { NextFunction, Request, Response } from 'express';
 
 // ============================================
 // SECURITY HEADERS MIDDLEWARE
@@ -26,7 +26,7 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: https: blob:",
         "font-src 'self' data:",
-        "connect-src 'self' https://api.eagledtfsupply.com https://*.shopify.com wss://api.eagledtfsupply.com",
+        `connect-src 'self' ${process.env.API_URL || 'http://localhost:4000'} https://*.shopify.com wss://${(process.env.API_URL || '').replace('https://', '')}`,
         "frame-ancestors 'self'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -84,7 +84,7 @@ export function sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
   if (!obj || typeof obj !== 'object') return obj;
 
   const sanitized = { ...obj };
-  
+
   for (const key of Object.keys(sanitized)) {
     const value = sanitized[key];
     if (typeof value === 'string') {
@@ -139,14 +139,14 @@ export const rateLimitConfigs = {
     register: { limit: 3, ttl: 60000 }, // 3 per minute
     passwordReset: { limit: 3, ttl: 300000 }, // 3 per 5 minutes
   },
-  
+
   // API endpoints - moderate limits
   api: {
     read: { limit: 100, ttl: 60000 }, // 100 per minute
     write: { limit: 30, ttl: 60000 }, // 30 per minute
     sync: { limit: 5, ttl: 60000 }, // 5 per minute
   },
-  
+
   // Webhook endpoints - high limits
   webhook: {
     shopify: { limit: 1000, ttl: 60000 }, // 1000 per minute
@@ -166,13 +166,13 @@ export const jwtSecurityConfig = {
     expiresIn: '1h',
     algorithm: 'HS256' as const,
   },
-  
+
   // Refresh token - longer lived
   refreshToken: {
     expiresIn: '7d',
     algorithm: 'HS256' as const,
   },
-  
+
   // Minimum secret length
   minSecretLength: 32,
 };
@@ -228,10 +228,10 @@ export const passwordRequirements = {
 /**
  * Validate password strength
  */
-export function validatePasswordStrength(password: string): { 
-  valid: boolean; 
-  score: number; 
-  issues: string[] 
+export function validatePasswordStrength(password: string): {
+  valid: boolean;
+  score: number;
+  issues: string[]
 } {
   const issues: string[] = [];
   let score = 0;
@@ -328,15 +328,14 @@ export function detectXss(input: string): boolean {
  * Allowed origins for CORS
  */
 export const allowedOrigins = [
-  'https://accounts.eagledtfsupply.com',
-  'https://app.eagledtfsupply.com',
-  'https://eagledtfsupply.com',
-  'https://www.eagledtfsupply.com',
+  process.env.ACCOUNTS_URL,
+  process.env.ADMIN_URL,
+  process.env.API_URL,
   // Development
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:4000',
-];
+].filter(Boolean) as string[];
 
 /**
  * Check if origin is allowed

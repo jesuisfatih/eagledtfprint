@@ -3,10 +3,11 @@
  * Seamless Shopify SSO without user interruption
  */
 
-import { storageService } from './storage-service';
 import { broadcastService } from './broadcast-service';
+import { config } from './config';
+import { storageService } from './storage-service';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com';
+const API_URL = config.apiUrl;
 
 export class AuthService {
   private static instance: AuthService;
@@ -43,12 +44,12 @@ export class AuthService {
 
   private onUserActivity(): void {
     broadcastService.broadcastActivity();
-    
+
     // Debounce activity ping
     if (this.activityTimer) {
       clearTimeout(this.activityTimer);
     }
-    
+
     this.activityTimer = setTimeout(() => {
       this.ping();
     }, 5000);
@@ -70,7 +71,7 @@ export class AuthService {
       // Background authentication
       const response = await fetch(
         `${API_URL}/api/v1/auth/shopify-callback?customer_id=${shopifyCustomerId}&email=${email}`,
-        { 
+        {
           credentials: 'include',
           mode: 'cors'
         }
@@ -78,12 +79,12 @@ export class AuthService {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         if (data.token) {
           this.setToken(data.token);
           this.setUserData(data.user);
           this.startTokenRefresh();
-          
+
           // Cleanup
           document.body.removeChild(iframe);
           return true;
@@ -200,11 +201,11 @@ export class AuthService {
    */
   async logout(): Promise<void> {
     await storageService.clear();
-    
+
     if (this.tokenRefreshTimer) {
       clearInterval(this.tokenRefreshTimer);
     }
-    
+
     if (this.activityTimer) {
       clearTimeout(this.activityTimer);
     }
@@ -218,7 +219,7 @@ export class AuthService {
   async recoverSession(): Promise<boolean> {
     try {
       const token = await this.getToken();
-      
+
       if (!token) {
         return false;
       }
@@ -232,7 +233,7 @@ export class AuthService {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         if (data.valid) {
           await this.setUserData(data.user);
           this.startTokenRefresh();
@@ -281,4 +282,3 @@ export class AuthService {
 
 // Global instance
 export const authService = AuthService.getInstance();
-

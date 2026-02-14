@@ -15,6 +15,7 @@ COPY package.json package-lock.json ./
 RUN cd /app/backend && npm install
 RUN cd /app/admin && npm install
 RUN cd /app/accounts && npm install
+RUN mkdir -p /app/backend/uploads/invoices
 
 # Generate Prisma client
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy

@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export type SyncEntityType = 'customers' | 'products' | 'orders';
 export type SyncStatus = 'idle' | 'running' | 'completed' | 'failed';
 
-const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes - max time a sync can hold the lock
+const LOCK_TTL_MS = 30 * 60 * 1000; // 30 minutes - max time a sync can hold the lock
 const MAX_CONSECUTIVE_FAILURES = 5; // After this many failures, require manual intervention
 
 @Injectable()

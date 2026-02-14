@@ -1,5 +1,6 @@
 'use client';
 
+import { config } from '@/lib/config';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -93,7 +94,7 @@ export default function Home() {
 
         {/* Footer */}
         <p style={{ textAlign: 'center', color: 'var(--text-quaternary)', marginTop: 48, fontSize: 12 }}>
-          © 2026 Eagle DTF Supply. All rights reserved.
+          © {new Date().getFullYear()} {config.brandName}. All rights reserved.
         </p>
       </div>
     </div>

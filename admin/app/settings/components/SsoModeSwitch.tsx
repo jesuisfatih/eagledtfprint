@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { adminFetch } from '@/lib/api-client';
 import { showToast } from '@/components/ui';
+import { adminFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
+import { useEffect, useState } from 'react';
 
 export default function SsoModeSwitch() {
   const [multipassMode, setMultipassMode] = useState(false);
@@ -105,7 +106,7 @@ export default function SsoModeSwitch() {
             </div>
             <div style={{ marginBottom: 16 }}>
               <label className="input-label">Session Cookie Domain</label>
-              <input className="input-apple" type="text" value=".eagledtfsupply.com" readOnly disabled />
+              <input className="input-apple" type="text" value={config.cookieDomain} readOnly disabled />
               <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>Cross-subdomain cookie for seamless auth</p>
             </div>
             <div>
@@ -134,4 +135,3 @@ export default function SsoModeSwitch() {
     </div>
   );
 }
-

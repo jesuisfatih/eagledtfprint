@@ -1,5 +1,6 @@
 'use client';
 
+import { config } from '@/lib/config';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -26,6 +27,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { title: 'Companies', icon: 'ti-building', href: '/companies' },
       { title: 'Users', icon: 'ti-users', href: '/users' },
+      { title: 'Customer Intelligence', icon: 'ti-brain', href: '/customers' },
       { title: 'Orders', icon: 'ti-shopping-cart', href: '/orders' },
       { title: 'Quotes', icon: 'ti-file-invoice', href: '/quotes' },
       { title: 'Invoices', icon: 'ti-receipt', href: '/invoices' },
@@ -74,7 +76,6 @@ const menuGroups: MenuGroup[] = [
     label: 'Support',
     items: [
       { title: 'Support Tickets', icon: 'ti-help', href: '/support' },
-      { title: 'Customers', icon: 'ti-user-check', href: '/customers' },
     ],
   },
 ];
@@ -93,7 +94,7 @@ export default function Sidebar() {
     <aside className="apple-sidebar">
       <Link href="/dashboard" className="sidebar-brand" style={{ textDecoration: 'none' }}>
         <div className="sidebar-brand-logo">🦅</div>
-        <span className="sidebar-brand-text">EAGLE SYSTEM</span>
+        <span className="sidebar-brand-text">{config.brandName}</span>
       </Link>
 
       <nav className="sidebar-nav">

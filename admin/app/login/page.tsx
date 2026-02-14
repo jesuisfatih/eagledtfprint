@@ -1,14 +1,40 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, useEffect, useState } from 'react';
+
+import { config } from '@/lib/config';
+
+const API_URL = config.apiUrl;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Handle OAuth callback token from URL
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const shop = searchParams.get('shop');
+    const oauthError = searchParams.get('error');
+
+    if (oauthError) {
+      setError(`OAuth failed: ${searchParams.get('message') || oauthError}`);
+      return;
+    }
+
+    if (token) {
+      // Auto-login with OAuth token
+      localStorage.setItem('eagle_admin_token', token);
+      if (shop) {
+        localStorage.setItem('eagle_shop_domain', shop);
+      }
+      router.push('/dashboard');
+    }
+  }, [searchParams, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -16,7 +42,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await fetch('https://api.eagledtfsupply.com/api/v1/auth/admin-login', {
+      const res = await fetch(`${API_URL}/api/v1/auth/admin-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -107,7 +133,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
-
-

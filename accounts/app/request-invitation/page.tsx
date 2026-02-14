@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { publicFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function RequestInvitationPage() {
   const router = useRouter();
@@ -241,10 +242,9 @@ export default function RequestInvitationPage() {
 
         {/* Footer */}
         <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', marginTop: 24, fontSize: 13 }}>
-          © 2025 Eagle DTF Supply. All rights reserved.
+          © {new Date().getFullYear()} {config.brandName}. All rights reserved.
         </p>
       </div>
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
 'use client';
 
 import { adminFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -110,7 +111,7 @@ export default function OrderDetailPage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {order.shopifyOrderId && (
-                <a href={`https://admin.shopify.com/store/eagledtfsupply/orders/${order.shopifyOrderId}`}
+                <a href={`${config.shopifyAdminBaseUrl}/orders/${order.shopifyOrderId}`}
                   target="_blank" rel="noopener noreferrer" className="btn-apple secondary" style={{ textDecoration: 'none' }}>
                   <i className="ti ti-external-link" style={{ marginRight: 4 }} />Shopify
                 </a>

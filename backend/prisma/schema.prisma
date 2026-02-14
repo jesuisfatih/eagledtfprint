@@ -55,6 +55,7 @@ model Merchant {
   pickupShelves  PickupShelf[]
   pickupOrders   PickupOrder[]
   proactiveOffers ProactiveOffer[]
+  customerLists  CustomerList[]
 
   @@index([shopDomain])
   @@index([status])
@@ -101,6 +102,7 @@ model ShopifyCustomer {
   merchant Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   insight  CustomerInsight?
   proactiveOffers ProactiveOffer[]
+  customerListItems CustomerListItem[]
 
   @@unique([merchantId, shopifyCustomerId])
   @@index([merchantId])
@@ -148,6 +150,8 @@ model CustomerInsight {
   customerSince     DateTime? @map("customer_since")
   isReturning       Boolean   @default(false) @map("is_returning")
 
+  deepMetrics Json? @map("deep_metrics")
+
   calculatedAt DateTime @default(now()) @map("calculated_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -160,6 +164,49 @@ model CustomerInsight {
   @@index([churnRisk])
   @@index([healthScore])
   @@map("customer_insights")
+}
+
+// ============================================
+// CUSTOMER LISTS (Custom user-created lists)
+// ============================================
+
+model CustomerList {
+  id          String   @id @default(uuid())
+  merchantId  String   @map("merchant_id")
+  name        String   // e.g. "To Call", "VIP Follow-up", "Re-engage"
+  description String?
+  color       String?  // Hex color for UI badge
+  icon        String?  // Tabler icon name
+  isSystem    Boolean  @default(false) @map("is_system") // true = auto-generated alarm list
+  systemType  String?  @map("system_type") // 'churn_alarm', 'attention_needed', 'dormant_whales', etc.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant            @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  items    CustomerListItem[]
+
+  @@index([merchantId])
+  @@index([merchantId, isSystem])
+  @@map("customer_lists")
+}
+
+model CustomerListItem {
+  id                String   @id @default(uuid())
+  listId            String   @map("list_id")
+  shopifyCustomerId String   @map("shopify_customer_id")
+  notes             String?  // Optional note per customer in list
+  addedAt           DateTime @default(now()) @map("added_at")
+
+  // Relations
+  list            CustomerList    @relation(fields: [listId], references: [id], onDelete: Cascade)
+  shopifyCustomer ShopifyCustomer @relation(fields: [shopifyCustomerId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, shopifyCustomerId])
+  @@index([listId])
+  @@index([shopifyCustomerId])
+  @@map("customer_list_items")
 }
 
 // ============================================

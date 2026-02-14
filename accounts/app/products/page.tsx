@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
 import { accountsFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import { formatCurrency } from '@/lib/utils';
+import type { B2BPricing, Product, ProductVariant } from '@/types';
+import { useEffect, useMemo, useState } from 'react';
 import ProductCard from './components/ProductCard';
-import type { Product, ProductVariant, B2BPricing } from '@/types';
 
 // Extended product with pricing info
 interface ProductWithPricing extends Product {
@@ -38,17 +39,17 @@ export default function ProductsPage() {
       setPricingError(false);
       const productsResponse = await accountsFetch('/api/v1/catalog/products?limit=100');
       const productsData = await productsResponse.json();
-      
+
       // Handle both array and paginated response formats
-      const productsList: Product[] = Array.isArray(productsData) 
-        ? productsData 
+      const productsList: Product[] = Array.isArray(productsData)
+        ? productsData
         : (productsData.data || productsData.products || []);
-      
+
       // Get variant IDs for pricing calculation
       const allVariantIds = productsList
         .flatMap(p => p.variants?.map((v: ProductVariant) => v.shopifyVariantId?.toString()) || [])
         .filter(Boolean);
-      
+
       // Get actual B2B pricing from API
       let pricingMap: Record<string, B2BPricing> = {};
       if (allVariantIds.length > 0) {
@@ -71,26 +72,26 @@ export default function ProductsPage() {
           setPricingError(true);
         }
       }
-      
+
       const productsWithPricing: ProductWithPricing[] = productsList.map((product: Product) => {
         const variant = product.variants?.[0];
         const basePrice = parseFloat(String(variant?.price)) || 0;
         const pricing = pricingMap[variant?.shopifyVariantId?.toString()] || {} as B2BPricing;
-        
+
         const companyPrice = pricing.discountedPrice || basePrice;
         const discount = pricing.discountPercentage || 0;
-        
+
         return {
           ...product,
           companyPrice,
           listPrice: basePrice,
           discount,
           image: product.images?.[0]?.url || product.images?.[0]?.src || '/placeholder.png',
-          vendor: product.vendor || 'Eagle DTF',
+          vendor: product.vendor || config.brandName,
           inStock: variant?.inventoryQuantity === undefined || variant.inventoryQuantity > 0,
         };
       });
-      
+
       setProducts(productsWithPricing);
     } catch (err) {
       console.error(err);
@@ -108,27 +109,27 @@ export default function ProductsPage() {
   // Filter and sort products
   const filteredProducts = useMemo(() => {
     let result = [...products];
-    
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(p => 
+      result = result.filter(p =>
         p.title?.toLowerCase().includes(query) ||
         p.vendor?.toLowerCase().includes(query) ||
         p.description?.toLowerCase().includes(query)
       );
     }
-    
+
     // Vendor filter
     if (selectedVendor) {
       result = result.filter(p => p.vendor === selectedVendor);
     }
-    
+
     // Discount filter
     if (showOnlyDiscounted) {
       result = result.filter(p => p.discount > 0);
     }
-    
+
     // Sort
     switch (sortBy) {
       case 'name':
@@ -147,7 +148,7 @@ export default function ProductsPage() {
         result.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         break;
     }
-    
+
     return result;
   }, [products, searchQuery, selectedVendor, showOnlyDiscounted, sortBy]);
 
@@ -155,15 +156,15 @@ export default function ProductsPage() {
   const stats = {
     total: products.length,
     discounted: products.filter(p => p.discount > 0).length,
-    avgDiscount: products.length > 0 
-      ? Math.round(products.reduce((sum, p) => sum + p.discount, 0) / products.length) 
+    avgDiscount: products.length > 0
+      ? Math.round(products.reduce((sum, p) => sum + p.discount, 0) / products.length)
       : 0,
     totalSavings: products.reduce((sum, p) => sum + (p.listPrice - p.companyPrice), 0),
   };
 
   const handleAddToCart = async (productId: string) => {
     const product = products.find(p => p.id === productId);
-    
+
     if (!product || !product.variants?.[0]) {
       throw new Error('Product or variant not found');
     }
@@ -172,11 +173,11 @@ export default function ProductsPage() {
     const companyId = localStorage.getItem('eagle_companyId') || '';
     const userId = localStorage.getItem('eagle_userId') || '';
     const merchantId = localStorage.getItem('eagle_merchantId') || '';
-    
+
     if (!merchantId) {
       throw new Error('Merchant not found. Please login again.');
     }
-    
+
     try {
       // Step 1: Get or create cart
       const cartResponse = await accountsFetch('/api/v1/carts/active');
@@ -206,7 +207,7 @@ export default function ProductsPage() {
         }
 
         cart = await createResponse.json();
-        
+
         if (!cart || !cart.id) {
           throw new Error('Cart ID not received');
         }
@@ -244,8 +245,8 @@ export default function ProductsPage() {
           <h2 style={{ fontWeight: 700, fontSize: 22, margin: '0 0 4px' }}>Product Catalog</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: 0 }}>Browse with exclusive B2B pricing</p>
         </div>
-        <button 
-          className="btn-apple btn-apple-secondary" 
+        <button
+          className="btn-apple btn-apple-secondary"
           onClick={loadProducts}
           disabled={loading}
           title="Refresh"
@@ -311,7 +312,7 @@ export default function ProductsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <button 
+                <button
                   onClick={() => setSearchQuery('')}
                   style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}
                 >
@@ -319,9 +320,9 @@ export default function ProductsPage() {
                 </button>
               )}
             </div>
-            
+
             {/* Vendor Filter */}
-            <select 
+            <select
               className="form-input"
               style={{ flex: '0 0 160px' }}
               value={selectedVendor}
@@ -332,9 +333,9 @@ export default function ProductsPage() {
                 <option key={v} value={v}>{v}</option>
               ))}
             </select>
-            
+
             {/* Sort */}
-            <select 
+            <select
               className="form-input"
               style={{ flex: '0 0 180px' }}
               value={sortBy}
@@ -346,7 +347,7 @@ export default function ProductsPage() {
               <option value="discount">Best Discount</option>
               <option value="newest">Newest</option>
             </select>
-            
+
             {/* Discount Filter */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>
               <input
@@ -357,17 +358,17 @@ export default function ProductsPage() {
               />
               On Sale Only
             </label>
-            
+
             {/* View Toggle */}
             <div style={{ display: 'flex', gap: 4, background: 'var(--bg-secondary)', borderRadius: 8, padding: 3 }}>
-              <button 
+              <button
                 className={viewMode === 'grid' ? 'btn-apple btn-apple-primary' : 'btn-apple'}
                 onClick={() => setViewMode('grid')}
                 style={{ width: 34, height: 30, padding: 0, fontSize: 16 }}
               >
                 <i className="ti ti-grid-dots"></i>
               </button>
-              <button 
+              <button
                 className={viewMode === 'list' ? 'btn-apple btn-apple-primary' : 'btn-apple'}
                 onClick={() => setViewMode('list')}
                 style={{ width: 34, height: 30, padding: 0, fontSize: 16 }}
@@ -396,7 +397,7 @@ export default function ProductsPage() {
           <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
             Showing {filteredProducts.length} of {products.length} products
           </span>
-          <button 
+          <button
             className="btn-apple btn-apple-secondary"
             style={{ height: 32, fontSize: 13 }}
             onClick={() => {
@@ -422,13 +423,13 @@ export default function ProductsPage() {
             <i className="ti ti-package-off" style={{ fontSize: 48, color: 'var(--text-tertiary)', display: 'block', marginBottom: 16 }}></i>
             <h3 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 8px' }}>No products found</h3>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-              {searchQuery || selectedVendor || showOnlyDiscounted 
-                ? 'Try adjusting your filters' 
+              {searchQuery || selectedVendor || showOnlyDiscounted
+                ? 'Try adjusting your filters'
                 : 'Products will appear here after sync'
               }
             </p>
             {(searchQuery || selectedVendor || showOnlyDiscounted) && (
-              <button 
+              <button
                 className="btn-apple btn-apple-primary"
                 onClick={() => {
                   setSearchQuery('');
@@ -472,8 +473,8 @@ export default function ProductsPage() {
                   <tr key={product.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <img 
-                          src={product.image} 
+                        <img
+                          src={product.image}
                           alt={product.title}
                           style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8 }}
                         />
@@ -503,7 +504,7 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td>
-                      <button 
+                      <button
                         className="btn-apple btn-apple-primary"
                         style={{ width: 36, height: 36, padding: 0 }}
                         onClick={() => handleAddToCart(product.id)}
@@ -522,7 +523,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
-
-
-

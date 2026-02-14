@@ -7,9 +7,13 @@ interface SnippetIntegrationProps {
   settings: AdminMerchantSettings | null;
 }
 
+import { config } from '@/lib/config';
+
 export default function SnippetIntegration({ settings }: SnippetIntegrationProps) {
-  const snippetCode = settings?.shopDomain 
-    ? `<script src="https://cdn.eagledtfsupply.com/snippet.iife.js" data-api-url="https://api.eagledtfsupply.com" data-shop="${settings.shopDomain}"></script>`
+  const apiUrl = config.apiUrl;
+  const cdnUrl = config.cdnUrl;
+  const snippetCode = settings?.shopDomain
+    ? `<script src="${cdnUrl}/snippet.iife.js" data-api-url="${apiUrl}" data-shop="${settings.shopDomain}"></script>`
     : '';
 
   const copySnippet = async () => {

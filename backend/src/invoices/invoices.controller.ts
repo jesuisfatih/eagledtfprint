@@ -53,6 +53,11 @@ export class InvoiceController {
     });
   }
 
+  @Get('statistics')
+  async getStatistics(@Req() req: any) {
+    return this.invoiceService.getStatistics(req.user.merchantId);
+  }
+
   @Get()
   async findAll(@Req() req: any, @Query() query: any) {
     return this.invoiceService.findAll(req.user.merchantId, query);
@@ -71,5 +76,27 @@ export class InvoiceController {
     @Body('amountPaid') amountPaid?: number,
   ) {
     return this.invoiceService.updateStatus(id, req.user.merchantId, status, amountPaid);
+  }
+
+  @Post(':id/record-payment')
+  async recordPayment(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('amount') amount: number,
+  ) {
+    return this.invoiceService.recordPayment(id, req.user.merchantId, amount);
+  }
+
+  @Post(':id/duplicate')
+  async duplicateInvoice(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    return this.invoiceService.duplicateInvoice(id, req.user.merchantId);
+  }
+
+  @Post('mark-overdue')
+  async markOverdue(@Req() req: any) {
+    return this.invoiceService.markOverdueInvoices(req.user.merchantId);
   }
 }

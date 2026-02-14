@@ -15,7 +15,7 @@ export class MailService {
     const smtpPort = this.config.get<number>('SMTP_PORT');
     const smtpUser = this.config.get<string>('SMTP_USER');
     const smtpPass = this.config.get<string>('SMTP_PASS');
-    
+
     this.fromEmail = this.config.get<string>('MAIL_FROM', 'noreply@eagle-engine.dev');
     this.fromName = this.config.get<string>('MAIL_FROM_NAME', 'Eagle B2B');
     this.isConfigured = !!(smtpHost && smtpUser && smtpPass);
@@ -51,7 +51,7 @@ export class MailService {
         text: text || html.replace(/<[^>]*>/g, ''),
         html,
       });
-      
+
       this.logger.log(`📧 Email sent to ${to}: ${result.messageId}`);
       return { success: true, messageId: result.messageId };
     } catch (error) {
@@ -61,10 +61,11 @@ export class MailService {
   }
 
   async sendInvitation(email: string, companyName: string, invitationUrl: string) {
-    const subject = `You've been invited to join ${companyName} on Eagle B2B`;
+    const brandName = this.fromName;
+    const subject = `You've been invited to join ${companyName} on ${brandName}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #1a1a2e;">Welcome to Eagle B2B</h1>
+        <h1 style="color: #1a1a2e;">Welcome to ${brandName}</h1>
         <p>You've been invited to join <strong>${companyName}</strong> as a team member.</p>
         <p>Click the button below to complete your registration:</p>
         <a href="${invitationUrl}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0;">
@@ -74,7 +75,7 @@ export class MailService {
         <p style="color: #666; font-size: 12px;">If you didn't expect this invitation, you can safely ignore this email.</p>
       </div>
     `;
-    
+
     const result = await this.sendMail(email, subject, html);
     return { ...result, invitationUrl };
   }
@@ -88,12 +89,12 @@ export class MailService {
         <p>We'll send you another email when your order ships.</p>
       </div>
     `;
-    
+
     return this.sendMail(email, subject, html);
   }
 
   async sendPasswordReset(email: string, resetUrl: string) {
-    const subject = 'Reset Your Password - Eagle B2B';
+    const subject = `Reset Your Password - ${this.fromName}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #1a1a2e;">Reset Your Password</h1>
@@ -105,13 +106,13 @@ export class MailService {
         <p style="color: #666; font-size: 12px;">If you didn't request this reset, you can safely ignore this email.</p>
       </div>
     `;
-    
+
     const result = await this.sendMail(email, subject, html);
     return { ...result, resetUrl };
   }
 
   async sendVerificationCode(email: string, code: string) {
-    const subject = 'Your Verification Code - Eagle B2B';
+    const subject = `Your Verification Code - ${this.fromName}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #1a1a2e;">Verification Code</h1>
@@ -122,12 +123,8 @@ export class MailService {
         <p style="color: #666; font-size: 14px;">This code will expire in 10 minutes.</p>
       </div>
     `;
-    
+
     const result = await this.sendMail(email, subject, html);
     return { ...result, code };
   }
 }
-
-
-
-

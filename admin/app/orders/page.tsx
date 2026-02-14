@@ -10,6 +10,7 @@ import {
     showToast
 } from '@/components/ui';
 import { adminFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import type { OrderWithItems } from '@/types';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -126,7 +127,7 @@ export default function OrdersPage() {
         <i className="ti ti-eye" />
       </Link>
       {order.shopifyOrderId && (
-        <a href={`https://admin.shopify.com/store/eagledtfsupply/orders/${order.shopifyOrderId}`}
+        <a href={`${config.shopifyAdminBaseUrl}/orders/${order.shopifyOrderId}`}
           target="_blank" rel="noopener noreferrer" className="btn-apple ghost small" title="View in Shopify">
           <i className="ti ti-external-link" />
         </a>

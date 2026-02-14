@@ -1,0 +1,77 @@
+import { PrismaService } from '../prisma/prisma.service';
+export type SyncEntityType = 'customers' | 'products' | 'orders';
+export type SyncStatus = 'idle' | 'running' | 'completed' | 'failed';
+export declare class SyncStateService {
+    private prisma;
+    private readonly logger;
+    constructor(prisma: PrismaService);
+    getState(merchantId: string, entityType: SyncEntityType): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        entityType: string;
+        isLocked: boolean;
+        lockedAt: Date | null;
+        lockExpiresAt: Date | null;
+        lastCursor: string | null;
+        lastSyncedId: bigint | null;
+        lastStartedAt: Date | null;
+        lastCompletedAt: Date | null;
+        lastFailedAt: Date | null;
+        totalRecordsSynced: number;
+        lastRunRecords: number;
+        consecutiveFailures: number;
+        lastError: string | null;
+    }>;
+    getAllStates(merchantId: string): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        entityType: string;
+        isLocked: boolean;
+        lockedAt: Date | null;
+        lockExpiresAt: Date | null;
+        lastCursor: string | null;
+        lastSyncedId: bigint | null;
+        lastStartedAt: Date | null;
+        lastCompletedAt: Date | null;
+        lastFailedAt: Date | null;
+        totalRecordsSynced: number;
+        lastRunRecords: number;
+        consecutiveFailures: number;
+        lastError: string | null;
+    }[]>;
+    isRunning(merchantId: string, entityType: SyncEntityType): Promise<boolean>;
+    shouldSkip(merchantId: string, entityType: SyncEntityType): Promise<boolean>;
+    acquireLock(merchantId: string, entityType: SyncEntityType): Promise<boolean>;
+    releaseLock(merchantId: string, entityType: SyncEntityType, finalStatus: 'completed' | 'failed', error?: string): Promise<void>;
+    updateCursor(merchantId: string, entityType: SyncEntityType, cursor: string | null, lastSyncedId?: bigint): Promise<void>;
+    updateMetrics(merchantId: string, entityType: SyncEntityType, recordsProcessed: number): Promise<void>;
+    updateMerchantLastSync(merchantId: string): Promise<void>;
+    resetFailures(merchantId: string, entityType: SyncEntityType): Promise<void>;
+    resetAll(merchantId: string): Promise<void>;
+    getComprehensiveStatus(merchantId: string): Promise<{
+        merchantLastSyncAt: Date | null | undefined;
+        isAnySyncing: boolean;
+        hasErrors: boolean;
+        entities: Record<string, any>;
+        recentLogs: {
+            id: string;
+            status: string;
+            merchantId: string;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            syncType: string;
+            recordsProcessed: number;
+            recordsFailed: number;
+            startedAt: Date;
+            completedAt: Date | null;
+            errorMessage: string | null;
+        }[];
+    }>;
+}

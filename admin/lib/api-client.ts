@@ -9,7 +9,9 @@ import type {
     SyncLog,
 } from '@eagle/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com';
+import { config } from './config';
+
+const API_URL = config.apiUrl;
 
 // ============================================
 // REQUEST/RESPONSE TYPES

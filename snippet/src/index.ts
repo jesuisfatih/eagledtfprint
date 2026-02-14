@@ -1110,7 +1110,7 @@ class EagleSnippet {
 // Initialize Eagle when DOM is ready
 (function () {
   const scriptTag = document.currentScript as HTMLScriptElement;
-  const apiUrl = scriptTag?.getAttribute('data-api-url') || 'https://api.eagledtfsupply.com';
+  const apiUrl = scriptTag?.getAttribute('data-api-url') || '';
 
   let shop = scriptTag?.getAttribute('data-shop') || '';
   if (!shop && typeof window !== 'undefined') {

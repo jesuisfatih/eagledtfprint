@@ -2,6 +2,7 @@
 
 import { PageHeader } from '@/components/ui';
 import { adminFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
 import { useCallback, useEffect, useState } from 'react';
 
 interface SystemHealth {
@@ -20,7 +21,7 @@ export default function IntegrationsPage() {
     const start = Date.now();
     try {
       const [healthRes, syncRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com'}/api/v1/health`),
+        fetch(`${config.apiUrl}/api/v1/health`),
         adminFetch('/api/v1/sync/status'),
       ]);
 

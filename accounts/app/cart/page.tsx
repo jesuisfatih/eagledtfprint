@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { accountsFetch } from '@/lib/api-client';
-import { formatCurrency, calculateSavings } from '@/lib/utils';
-import { CartSummary, CartItemRow } from '@/components/cart/CartSummary';
+import { CartSummary } from '@/components/cart/CartSummary';
 import { CartOptimizer } from '@/components/cart/QuantityBreakAlert';
-import { PageLoading, EmptyState } from '@/components/ui';
+import { EmptyState, PageLoading } from '@/components/ui';
+import { accountsFetch } from '@/lib/api-client';
+import { config } from '@/lib/config';
+import { formatCurrency } from '@/lib/utils';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 // Cart item structure as returned by API
 interface CartItemData {
@@ -43,7 +44,7 @@ export default function CartPage() {
     setLoading(true);
     try {
       const response = await accountsFetch('/api/v1/carts/active');
-      
+
       if (response.ok && response.status !== 204) {
         try {
           const data = await response.json();
@@ -68,7 +69,7 @@ export default function CartPage() {
     firstName: string;
     lastName: string;
   }
-  
+
   interface AddressData {
     id: string;
     firstName: string;
@@ -87,27 +88,27 @@ export default function CartPage() {
       setCheckoutError('Cart is empty');
       return;
     }
-    
+
     setCheckoutLoading(true);
     setCheckoutError(null);
-    
+
     try {
       // Step 1: Fetch user profile and address information
       let userData: UserData | null = null;
       let addressData: AddressData | null = null;
-      
+
       try {
         // Get user profile
         const userResponse = await accountsFetch('/api/v1/company-users/me');
-        
+
         if (userResponse.ok) {
           userData = await userResponse.json();
         }
-        
+
         // Get user addresses (try to get default or first address)
         try {
           const addressResponse = await accountsFetch('/api/v1/addresses');
-          
+
           if (addressResponse.ok) {
             const addresses: AddressData[] = await addressResponse.json();
             // Get default address or first address
@@ -119,7 +120,7 @@ export default function CartPage() {
       } catch (userErr) {
         console.warn('User data fetch failed:', userErr);
       }
-      
+
       // Step 2: Store user data in localStorage for checkout autofill
       if (userData || addressData) {
         const checkoutData = {
@@ -135,18 +136,18 @@ export default function CartPage() {
           country: addressData?.country || 'US',
           timestamp: Date.now(), // For cleanup
         };
-        
+
         // Store in localStorage with a unique key
         localStorage.setItem('eagle_checkout_autofill', JSON.stringify(checkoutData));
-        
+
         // Also store in sessionStorage as backup
         sessionStorage.setItem('eagle_checkout_autofill', JSON.stringify(checkoutData));
       }
-      
+
       // Step 3: Get shop domain from company data
       const companyId = localStorage.getItem('eagle_companyId') || '';
       let shopDomain = '';
-      
+
       try {
         const companyResponse = await accountsFetch(`/api/v1/companies/${companyId}`);
         if (companyResponse.ok) {
@@ -156,46 +157,46 @@ export default function CartPage() {
       } catch (e) {
         console.error('Failed to get shop domain:', e);
       }
-      
+
       if (!shopDomain) {
         throw new Error('Shop domain not found');
       }
-      
+
       const shopUrl = `https://${shopDomain}`;
-      
+
       // Build Shopify cart URL with all items
       // Format: /cart/variant_id:quantity,variant_id:quantity
       const cartItems = cart.items.map((item: CartItemData) => {
         const shopifyVarId = item.shopifyVariantId || item.variantId || item.id || '';
         return `${shopifyVarId}:${item.quantity}`;
       }).join(',');
-      
+
       // Build the full cart URL that will add items and redirect to checkout
       let cartUrl = `${shopUrl}/cart/${cartItems}`;
-      
+
       // Step 4: Get checkout URL with SSO and discount from backend
       let checkoutUrl = '';
       let ssoUrl: string | null = null;
-      
+
       try {
         const userId = localStorage.getItem('eagle_userId') || '';
         const checkoutResponse = await accountsFetch('/api/v1/checkout/create', {
           method: 'POST',
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             cartId: cart.id,
             userId: userId || undefined,
           }),
         });
-        
+
         if (checkoutResponse.ok) {
           const checkoutData = await checkoutResponse.json();
           checkoutUrl = checkoutData.checkoutUrl || '';
-          
+
           // If SSO URL is provided, use it first
           if (checkoutData.ssoUrl) {
             ssoUrl = checkoutData.ssoUrl;
           }
-          
+
           // Add discount to URL if available
           if (checkoutData.discountCode && checkoutUrl) {
             const urlObj = new URL(checkoutUrl);
@@ -206,7 +207,7 @@ export default function CartPage() {
       } catch (checkoutErr) {
         console.warn('Checkout creation failed:', checkoutErr);
       }
-      
+
       // Step 5: If no checkout URL from backend, use cart URL that adds items and goes to checkout
       if (!checkoutUrl) {
         // Get discount code from backend if available
@@ -216,7 +217,7 @@ export default function CartPage() {
             method: 'POST',
             body: JSON.stringify({ cartId: cart.id }),
           });
-          
+
           if (discountResponse.ok) {
             const discountData = await discountResponse.json();
             if (discountData.discountCode) {
@@ -226,21 +227,21 @@ export default function CartPage() {
         } catch (discountErr) {
           console.warn('Discount code fetch failed:', discountErr);
         }
-        
+
         // Build checkout URL with customer info pre-filled
         // Shopify supports these query parameters for pre-filling checkout
         const checkoutParams = new URLSearchParams();
-        
+
         // Add discount if available
         if (discountParam) {
           checkoutParams.set('discount', discountParam.replace('discount=', ''));
         }
-        
+
         // Pre-fill customer email
         if (userData?.email) {
           checkoutParams.set('checkout[email]', userData.email);
         }
-        
+
         // Pre-fill shipping address
         if (userData?.firstName) {
           checkoutParams.set('checkout[shipping_address][first_name]', userData.firstName);
@@ -251,7 +252,7 @@ export default function CartPage() {
         if (userData?.phone) {
           checkoutParams.set('checkout[shipping_address][phone]', userData.phone);
         }
-        
+
         // Address fields from addressData
         if (addressData?.address1 || addressData?.street) {
           checkoutParams.set('checkout[shipping_address][address1]', addressData.address1 || addressData.street || '');
@@ -271,22 +272,22 @@ export default function CartPage() {
         if (addressData?.country) {
           checkoutParams.set('checkout[shipping_address][country]', addressData.country);
         }
-        
+
         // Use cart URL format: /cart/variant:qty,variant:qty?checkout[email]=...
         const queryString = checkoutParams.toString();
         checkoutUrl = `${cartUrl}${queryString ? '?' + queryString : ''}`;
       }
-      
+
       // Step 6: Set cookies for autofill (Shopify reads these)
       // Shopify checkout reads certain cookies for autofill
       if (userData || addressData) {
-        const domain = '.eagledtfsupply.com'; // Cross-subdomain cookie
-        
+        const domain = config.cookieDomain; // Cross-subdomain cookie
+
         // Set customer email cookie (Shopify reads this)
         if (userData?.email) {
           document.cookie = `customer_email=${encodeURIComponent(userData.email)}; domain=${domain}; path=/; max-age=3600; SameSite=Lax`;
         }
-        
+
         // Set customer info in localStorage for snippet autofill
         const checkoutData = {
           email: userData?.email || localStorage.getItem('eagle_userEmail') || '',
@@ -301,17 +302,17 @@ export default function CartPage() {
           country: addressData?.country || 'US',
           timestamp: Date.now(),
         };
-        
+
         localStorage.setItem('eagle_checkout_autofill', JSON.stringify(checkoutData));
         sessionStorage.setItem('eagle_checkout_autofill', JSON.stringify(checkoutData));
       }
-      
+
       // Step 7: Redirect to SSO first (if available), then checkout
       if (ssoUrl) {
         // Update SSO return_to with checkout URL
         const ssoUrlObj = new URL(ssoUrl);
         ssoUrlObj.searchParams.set('return_to', checkoutUrl);
-        
+
         console.log('🦅 Redirecting to SSO first, then checkout');
         window.location.href = ssoUrlObj.toString();
       } else {
@@ -319,10 +320,10 @@ export default function CartPage() {
         console.log('🦅 Redirecting to checkout');
         window.location.href = checkoutUrl;
       }
-      
+
     } catch (err) {
       console.error('Checkout error:', err);
-      
+
       // Fallback: Use cart URL format - need to get shopDomain again
       const companyId = localStorage.getItem('eagle_companyId') || '';
       let fallbackShopDomain = '';
@@ -335,11 +336,11 @@ export default function CartPage() {
       } catch (e) {
         console.error('Fallback shop domain fetch failed:', e);
       }
-      
-      const cartItems = cart.items.map((item: CartItemData) => 
+
+      const cartItems = cart.items.map((item: CartItemData) =>
         `${item.shopifyVariantId}:${item.quantity}`
       ).join(',');
-      
+
       if (cartItems && fallbackShopDomain) {
         window.location.href = `https://${fallbackShopDomain}/cart/${cartItems}`;
       } else {
@@ -351,13 +352,13 @@ export default function CartPage() {
 
   const updateQuantity = async (itemId: string, quantity: number) => {
     if (!cart) return;
-    
+
     try {
       const response = await accountsFetch(`/api/v1/carts/${cart.id}/items/${itemId}`, {
         method: 'PUT',
         body: JSON.stringify({ quantity }),
       });
-      
+
       if (response.ok) {
         loadCart();
       }
@@ -383,17 +384,17 @@ export default function CartPage() {
       const merchantId = localStorage.getItem('eagle_merchantId') || '';
       const companyId = localStorage.getItem('eagle_companyId') || '';
       const userId = localStorage.getItem('eagle_userId') || '';
-      
+
       if (!merchantId) {
         alert('Merchant not found. Please login again.');
         return;
       }
-      
+
       const response = await accountsFetch('/api/v1/carts', {
         method: 'POST',
         body: JSON.stringify({ merchantId, companyId, createdByUserId: userId }),
       });
-      
+
       if (response.ok) {
         loadCart();
       }
@@ -402,13 +403,13 @@ export default function CartPage() {
     }
   };
 
-  const subtotal = cart?.items?.reduce((sum: number, item: CartItemData) => 
+  const subtotal = cart?.items?.reduce((sum: number, item: CartItemData) =>
     sum + (item.unitPrice * item.quantity), 0) || 0;
-  
+
   // Calculate list total (original prices before B2B discount)
-  const listTotal = cart?.items?.reduce((sum: number, item: CartItemData) => 
+  const listTotal = cart?.items?.reduce((sum: number, item: CartItemData) =>
     sum + ((item.listPrice || item.unitPrice) * item.quantity), 0) || 0;
-  
+
   // Calculate savings
   const totalSavings = listTotal - subtotal;
 
@@ -559,7 +560,7 @@ export default function CartPage() {
               onCheckout={checkout}
               checkoutLoading={checkoutLoading}
               disabled={!cart || cart.items.length === 0}
-            />            
+            />
             {/* Checkout Error */}
             {checkoutError && (
               <div className="alert alert-error" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>

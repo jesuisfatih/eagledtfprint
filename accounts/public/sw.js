@@ -1,6 +1,7 @@
 // Eagle B2B Service Worker - Auth & Offline Support
 const CACHE_NAME = 'eagle-auth-v1';
-const API_URL = 'https://api.eagledtfsupply.com';
+// API_URL is injected at registration time via query param or defaults to origin
+const API_URL = new URL(self.location).searchParams.get('apiUrl') || self.location.origin;
 
 // Install
 self.addEventListener('install', (event) => {
@@ -17,7 +18,7 @@ self.addEventListener('activate', (event) => {
 // Fetch - Add auth token to all API requests
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
+
   // Only intercept API requests
   if (url.origin === API_URL) {
     event.respondWith(
@@ -26,18 +27,18 @@ self.addEventListener('fetch', (event) => {
           // Get token from IndexedDB
           const db = await openDB();
           const token = await getFromDB(db, 'eagle_token');
-          
+
           // Clone request and add auth header
           const headers = new Headers(event.request.headers);
           if (token && !headers.has('Authorization')) {
             headers.set('Authorization', `Bearer ${token}`);
           }
-          
+
           const authRequest = new Request(event.request, { headers });
-          
+
           // Fetch with auth
           const response = await fetch(authRequest);
-          
+
           // If 401, try to refresh token
           if (response.status === 401) {
             const newToken = await refreshToken(token);
@@ -48,7 +49,7 @@ self.addEventListener('fetch', (event) => {
               return await fetch(retryRequest);
             }
           }
-          
+
           return response;
         } catch (error) {
           console.error('Service Worker fetch error:', error);
@@ -64,7 +65,7 @@ async function openDB() {
   return new Promise((resolve, reject) => {
     // Use version 2 to fix version error
     const request = indexedDB.open('eagle_auth_db', 2);
-    
+
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       // Create store if it doesn't exist
@@ -72,7 +73,7 @@ async function openDB() {
         db.createObjectStore('auth_store', { keyPath: 'key' });
       }
     };
-    
+
     request.onsuccess = () => {
       const db = request.result;
       // Verify store exists, if not, upgrade
@@ -92,7 +93,7 @@ async function openDB() {
         resolve(db);
       }
     };
-    
+
     request.onerror = () => reject(request.error);
   });
 }
@@ -106,7 +107,7 @@ async function getFromDB(db, key) {
         resolve(null);
         return;
       }
-      
+
       const transaction = db.transaction(['auth_store'], 'readonly');
       const store = transaction.objectStore('auth_store');
       const request = store.get(key);
@@ -129,10 +130,10 @@ async function refreshToken(oldToken) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: oldToken }),
     });
-    
+
     if (response.ok) {
       const data = await response.json();
-      
+
       if (data.token) {
         // Store new token
         const db = await openDB();
@@ -140,7 +141,7 @@ async function refreshToken(oldToken) {
         return data.token;
       }
     }
-    
+
     return null;
   } catch (error) {
     console.error('Token refresh error:', error);
@@ -157,7 +158,7 @@ async function setInDB(db, key, value) {
         resolve(); // Resolve instead of rejecting
         return;
       }
-      
+
       const transaction = db.transaction(['auth_store'], 'readwrite');
       const store = transaction.objectStore('auth_store');
       const request = store.put({ key, value, timestamp: Date.now() });
@@ -172,4 +173,3 @@ async function setInDB(db, key, value) {
     }
   });
 }
-

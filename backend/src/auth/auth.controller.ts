@@ -1,30 +1,30 @@
-import { Controller, Post, Body, Get, Query, Res, Req, HttpStatus, Delete, Param, Headers, UseGuards, Logger } from '@nestjs/common';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
-import type { Response, Request } from 'express';
-import { AuthService } from './auth.service';
-import { SessionSyncService } from './session-sync.service';
-import { LoginSecurityService } from './login-security.service';
-import { Public } from './decorators/public.decorator';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
-import { ShopifySsoService } from '../shopify/shopify-sso.service';
-import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
-import { ShopifyRestService } from '../shopify/shopify-rest.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { ShopifyOauthService } from './shopify-oauth.service';
+import { Body, Controller, Get, Headers, HttpStatus, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { 
-  AdminLoginDto, 
-  LoginDto, 
-  RegisterDto, 
-  AcceptInvitationDto, 
-  SendVerificationCodeDto, 
-  VerifyEmailCodeDto,
-  ShopifyCustomerSyncDto,
-  PasswordResetRequestDto,
-  PasswordResetDto
+import { Throttle } from '@nestjs/throttler';
+import type { Request, Response } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
+import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
+import { ShopifyRestService } from '../shopify/shopify-rest.service';
+import { ShopifySsoService } from '../shopify/shopify-sso.service';
+import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { Public } from './decorators/public.decorator';
+import {
+    AcceptInvitationDto,
+    AdminLoginDto,
+    LoginDto,
+    PasswordResetDto,
+    PasswordResetRequestDto,
+    RegisterDto,
+    SendVerificationCodeDto,
+    ShopifyCustomerSyncDto,
+    VerifyEmailCodeDto
 } from './dto/auth.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LoginSecurityService } from './login-security.service';
+import { SessionSyncService } from './session-sync.service';
+import { ShopifyOauthService } from './shopify-oauth.service';
 
 @Controller('auth')
 export class AuthController {
@@ -43,7 +43,7 @@ export class AuthController {
     private config: ConfigService,
     private jwtService: JwtService,
   ) {
-    this.adminUrl = this.config.get<string>('ADMIN_URL', 'https://admin.eagledtfsupply.com');
+    this.adminUrl = this.config.get<string>('ADMIN_URL', '');
     this.adminUsername = this.config.get<string>('ADMIN_USERNAME', 'admin');
     this.adminPassword = this.config.get<string>('ADMIN_PASSWORD', 'eagle2025');
   }
@@ -134,7 +134,7 @@ export class AuthController {
       }
 
       const user = await this.authService.validateUser(dto.email, dto.password);
-      
+
       if (!user) {
         // Record failed attempt
         const failResult = await this.loginSecurity.recordFailedAttempt(identifier);
@@ -195,30 +195,30 @@ export class AuthController {
     try {
       // When user logs in Shopify, Shopify redirects back here
       // We log them in Eagle automatically
-      
+
       const user = await this.authService.findUserByEmail(email);
-      
+
       if (!user) {
         // Create new user from Shopify customer
         const newUser = await this.authService.createUserFromShopify({
           email,
           shopifyCustomerId,
         });
-        
+
         const token = await this.authService.generateToken(newUser);
-        
+
         return res.redirect(
-          `https://accounts.eagledtfsupply.com/login?token=${token}&auto=true`
+          `${this.config.get('ACCOUNTS_URL')}/login?token=${token}&auto=true`
         );
       }
 
       const token = await this.authService.generateToken(user);
-      
+
       return res.redirect(
-        `https://accounts.eagledtfsupply.com/login?token=${token}&auto=true`
+        `${this.config.get('ACCOUNTS_URL')}/login?token=${token}&auto=true`
       );
     } catch (error) {
-      return res.redirect('https://accounts.eagledtfsupply.com/login?error=shopify_auth_failed');
+      return res.redirect(`${this.config.get('ACCOUNTS_URL')}/login?error=shopify_auth_failed`);
     }
   }
 
@@ -302,7 +302,7 @@ export class AuthController {
   ) {
     try {
       this.logger.log(`📩 [REQUEST_INVITATION] New invitation request from ${body.email}`);
-      
+
       // Store request in database for admin review
       const merchant = await this.prisma.merchant.findFirst();
       if (!merchant) {
@@ -359,9 +359,9 @@ export class AuthController {
   async forgotPassword(@Body() dto: PasswordResetRequestDto, @Res() res: Response) {
     try {
       this.logger.log(`🔑 [FORGOT_PASSWORD] Password reset requested for ${dto.email}`);
-      
+
       const result = await this.authService.requestPasswordReset(dto.email);
-      
+
       // Always return success to prevent email enumeration
       return res.json({
         success: true,
@@ -386,9 +386,9 @@ export class AuthController {
   async resetPassword(@Body() dto: PasswordResetDto, @Res() res: Response) {
     try {
       this.logger.log(`🔑 [RESET_PASSWORD] Password reset attempt with token`);
-      
+
       const result = await this.authService.resetPassword(dto.token, dto.newPassword);
-      
+
       if (result.success) {
         this.logger.log(`✅ [RESET_PASSWORD] Password reset successful`);
         return res.json({
@@ -485,7 +485,7 @@ export class AuthController {
   async refreshToken(@Body() body: { token: string }, @Res() res: Response) {
     try {
       const newToken = await this.authService.refreshToken(body.token);
-      
+
       if (!newToken) {
         return res.status(HttpStatus.UNAUTHORIZED).json({
           message: 'Invalid or expired token',
@@ -511,7 +511,7 @@ export class AuthController {
   async validateToken(@Body() body: { token: string }, @Res() res: Response) {
     try {
       const user = await this.authService.validateToken(body.token);
-      
+
       if (!user) {
         return res.status(HttpStatus.UNAUTHORIZED).json({
           valid: false,
@@ -528,8 +528,8 @@ export class AuthController {
 
   /**
    * Generate Shopify SSO URL for logged-in user
-   * Used when user logs in at accounts.eagledtfsupply.com and wants to go to Shopify
-   * 
+   * Used when user logs in at the accounts portal and wants to go to Shopify
+   *
    * Usage:
    * POST /api/v1/auth/shopify-sso
    * Headers: Authorization: Bearer {token}
@@ -656,7 +656,7 @@ export class AuthController {
   async getCurrentUser(@Query('token') token: string, @Res() res: Response) {
     try {
       const user = await this.authService.validateToken(token);
-      
+
       if (!user) {
         return res.status(HttpStatus.UNAUTHORIZED).json({
           message: 'Invalid token',
@@ -698,14 +698,14 @@ export class AuthController {
       }
 
       // Normalize shop domain
-      const shopDomain = shop.includes('.myshopify.com') 
-        ? shop 
+      const shopDomain = shop.includes('.myshopify.com')
+        ? shop
         : `${shop}.myshopify.com`;
 
       this.logger.log(`🔐 [OAUTH] Starting OAuth install for shop: ${shopDomain}`);
-      
+
       const installUrl = this.shopifyOauth.getInstallUrl(shopDomain);
-      
+
       return res.redirect(installUrl);
     } catch (error: any) {
       this.logger.error(`❌ [OAUTH] Install failed: ${error.message}`);
@@ -720,24 +720,15 @@ export class AuthController {
   @Public()
   @Get('shopify/callback')
   async shopifyOauthCallback(
-    @Query('code') code: string,
-    @Query('shop') shop: string,
-    @Query('hmac') hmac: string,
-    @Query('timestamp') timestamp: string,
-    @Query('state') state: string,
+    @Query() query: Record<string, string>,
     @Res() res: Response,
   ) {
+    const shop = query.shop;
     try {
-      this.logger.log(`🔐 [OAUTH] Callback received for shop: ${shop}`);
+      this.logger.log(`🔐 [OAUTH] Callback received for shop: ${shop}, params: ${Object.keys(query).join(',')}`);
 
-      // Handle OAuth callback
-      const result = await this.shopifyOauth.handleCallback({
-        code,
-        shop,
-        hmac,
-        timestamp,
-        state,
-      });
+      // Handle OAuth callback - pass ALL query params for proper HMAC verification
+      const result = await this.shopifyOauth.handleCallback(query as any);
 
       this.logger.log(`✅ [OAUTH] OAuth successful for merchant: ${result.merchant.id}`);
 
@@ -771,7 +762,7 @@ export class AuthController {
   async validatePassword(@Body() body: { password: string }) {
     const result = this.loginSecurity.validatePassword(body.password);
     const strength = this.loginSecurity.calculatePasswordStrength(body.password);
-    
+
     return {
       success: true,
       valid: result.valid,

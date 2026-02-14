@@ -1,8 +1,9 @@
 'use client';
 
+import { config } from '@/lib/config';
 import { useEffect, useRef, useState } from 'react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com';
+const API_URL = config.apiUrl;
 
 interface ShelfInfo {
   code: string;
@@ -136,7 +137,7 @@ export default function QRPickupPage() {
           background: 'linear-gradient(135deg, #6383ff, #a78bfa)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
-          Eagle DTF — Pickup
+          {config.brandName} — Pickup
         </h1>
         <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, marginTop: 4 }}>
           Siparişinizi almak için QR kodunuzu okutun
@@ -372,7 +373,7 @@ export default function QRPickupPage() {
 
       {/* Footer */}
       <p style={{ position: 'relative', zIndex: 1, color: 'rgba(255,255,255,0.2)', fontSize: 11, marginTop: 40 }}>
-        © Eagle DTF Supply — Powered by Eagle B2B Engine
+        © {config.brandName} — Powered by Eagle B2B Engine
       </p>
 
       <style>{`

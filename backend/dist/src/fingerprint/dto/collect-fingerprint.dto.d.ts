@@ -1,0 +1,36 @@
+export declare class CollectFingerprintDto {
+    shop: string;
+    fingerprintHash: string;
+    canvasHash?: string;
+    webglHash?: string;
+    audioHash?: string;
+    userAgent?: string;
+    platform?: string;
+    language?: string;
+    languages?: string;
+    timezone?: string;
+    timezoneOffset?: number;
+    screenWidth?: number;
+    screenHeight?: number;
+    colorDepth?: number;
+    pixelRatio?: number;
+    touchSupport?: boolean;
+    hardwareConcurrency?: number;
+    deviceMemory?: number;
+    maxTouchPoints?: number;
+    gpuVendor?: string;
+    gpuRenderer?: string;
+    cookiesEnabled?: boolean;
+    doNotTrack?: string;
+    adBlockDetected?: boolean;
+    pluginCount?: number;
+    fontCount?: number;
+    connectionType?: string;
+    sessionId?: string;
+    eagleToken?: string;
+    shopifyCustomerId?: string;
+    email?: string;
+    signalCount?: number;
+    thumbmarkHash?: string;
+    trafficSource?: any;
+}

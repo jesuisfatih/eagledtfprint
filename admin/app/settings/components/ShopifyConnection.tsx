@@ -6,6 +6,10 @@ interface ShopifyConnectionProps {
   settings: AdminMerchantSettings | null;
 }
 
+import { config } from '@/lib/config';
+
+const API_URL = config.apiUrl;
+
 export default function ShopifyConnection({ settings }: ShopifyConnectionProps) {
   return (
     <div className="apple-card" style={{ marginBottom: 20 }}>
@@ -33,11 +37,11 @@ export default function ShopifyConnection({ settings }: ShopifyConnectionProps) 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>API Base URL</p>
-            <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-blue)' }}>https://api.eagledtfsupply.com</p>
+            <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-blue)' }}>{API_URL}</p>
           </div>
           <div>
             <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>CDN URL</p>
-            <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-blue)' }}>https://cdn.eagledtfsupply.com</p>
+            <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-blue)' }}>{API_URL.replace('api.', 'cdn.')}</p>
           </div>
         </div>
       </div>

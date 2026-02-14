@@ -4,8 +4,9 @@
  */
 
 import { authService } from './auth-service';
+import { config } from './config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.eagledtfsupply.com';
+const API_URL = config.apiUrl;
 const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const ACTIVITY_THRESHOLD = 30 * 1000; // 30 seconds
 
@@ -42,7 +43,7 @@ class HeartbeatService {
     try {
       // Only ping if user was active in last 30 seconds
       const timeSinceActivity = Date.now() - this.lastActivity;
-      
+
       if (timeSinceActivity > ACTIVITY_THRESHOLD) {
         return; // User inactive, skip ping
       }
@@ -67,7 +68,7 @@ class HeartbeatService {
 
   private trackActivity(): void {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-    
+
     const updateActivity = () => {
       this.lastActivity = Date.now();
       this.isActive = true;
@@ -89,4 +90,3 @@ class HeartbeatService {
 }
 
 export const heartbeat = new HeartbeatService();
-

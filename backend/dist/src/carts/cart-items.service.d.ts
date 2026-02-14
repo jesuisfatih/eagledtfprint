@@ -1,0 +1,63 @@
+import { PrismaService } from '../prisma/prisma.service';
+export declare class CartItemsService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    addItem(cartId: string, variantId: string, shopifyVariantId: bigint, quantity: number): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        shopifyProductId: bigint | null;
+        title: string | null;
+        cartId: string;
+        productId: string | null;
+        variantId: string | null;
+        shopifyVariantId: bigint | null;
+        quantity: number;
+        sku: string | null;
+        variantTitle: string | null;
+        listPrice: import("@prisma/client-runtime-utils").Decimal;
+        unitPrice: import("@prisma/client-runtime-utils").Decimal;
+        discountAmount: import("@prisma/client-runtime-utils").Decimal;
+        lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
+        appliedPricingRuleId: string | null;
+    }>;
+    updateQuantity(itemId: string, quantity: number): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        shopifyProductId: bigint | null;
+        title: string | null;
+        cartId: string;
+        productId: string | null;
+        variantId: string | null;
+        shopifyVariantId: bigint | null;
+        quantity: number;
+        sku: string | null;
+        variantTitle: string | null;
+        listPrice: import("@prisma/client-runtime-utils").Decimal;
+        unitPrice: import("@prisma/client-runtime-utils").Decimal;
+        discountAmount: import("@prisma/client-runtime-utils").Decimal;
+        lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
+        appliedPricingRuleId: string | null;
+    }>;
+    removeItem(itemId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        shopifyProductId: bigint | null;
+        title: string | null;
+        cartId: string;
+        productId: string | null;
+        variantId: string | null;
+        shopifyVariantId: bigint | null;
+        quantity: number;
+        sku: string | null;
+        variantTitle: string | null;
+        listPrice: import("@prisma/client-runtime-utils").Decimal;
+        unitPrice: import("@prisma/client-runtime-utils").Decimal;
+        discountAmount: import("@prisma/client-runtime-utils").Decimal;
+        lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
+        appliedPricingRuleId: string | null;
+    }>;
+    clearCart(cartId: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
+}
