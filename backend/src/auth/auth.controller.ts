@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, HttpStatus, Logger, Post, Put, Query, R
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
-import * as bcrypt from 'bcrypt';
+import { pbkdf2Sync, randomBytes } from 'crypto';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
@@ -52,6 +52,21 @@ export class AuthController {
     this.envAdminPassword = this.config.get<string>('ADMIN_PASSWORD', 'eagle2025');
   }
 
+  /** Hash a password with PBKDF2 + random salt */
+  private hashPassword(password: string): string {
+    const salt = randomBytes(16).toString('hex');
+    const hash = pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return `${salt}:${hash}`;
+  }
+
+  /** Verify password against PBKDF2 hash */
+  private verifyPassword(password: string, storedHash: string): boolean {
+    const [salt, hash] = storedHash.split(':');
+    if (!salt || !hash) return false;
+    const verify = pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return hash === verify;
+  }
+
   /**
    * Admin panel login
    * Credentials checked in order: DB (merchant.settings) → ENV fallback → hardcoded default
@@ -88,7 +103,7 @@ export class AuthController {
       if (dbAdminEmail && dbAdminPasswordHash) {
         // DB credentials exist — validate against them
         credentialsValid = dto.username === dbAdminEmail &&
-          await bcrypt.compare(dto.password, dbAdminPasswordHash);
+          this.verifyPassword(dto.password, dbAdminPasswordHash);
       } else {
         // No DB credentials yet — use env fallback
         credentialsValid = dto.username === this.envAdminUsername &&
@@ -107,7 +122,7 @@ export class AuthController {
       // Auto-persist env credentials to DB on first login
       if (shouldPersistToDB) {
         try {
-          const hash = await bcrypt.hash(this.envAdminPassword, 10);
+          const hash = this.hashPassword(this.envAdminPassword);
           const updatedSettings = { ...settings, adminEmail: this.envAdminUsername, adminPasswordHash: hash };
           await this.prisma.merchant.update({
             where: { id: merchant.id },
@@ -172,7 +187,7 @@ export class AuthController {
       // Verify current password
       let currentPasswordValid = false;
       if (dbAdminPasswordHash) {
-        currentPasswordValid = await bcrypt.compare(body.currentPassword, dbAdminPasswordHash);
+        currentPasswordValid = this.verifyPassword(body.currentPassword, dbAdminPasswordHash);
       } else {
         currentPasswordValid = body.currentPassword === this.envAdminPassword;
       }
@@ -184,8 +199,8 @@ export class AuthController {
       // Update
       const newEmail = body.newEmail || dbAdminEmail || this.envAdminUsername;
       const newHash = body.newPassword
-        ? await bcrypt.hash(body.newPassword, 10)
-        : dbAdminPasswordHash || await bcrypt.hash(this.envAdminPassword, 10);
+        ? this.hashPassword(body.newPassword)
+        : dbAdminPasswordHash || this.hashPassword(this.envAdminPassword);
 
       const updatedSettings = { ...settings, adminEmail: newEmail, adminPasswordHash: newHash };
       await this.prisma.merchant.update({
