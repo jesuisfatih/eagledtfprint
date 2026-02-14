@@ -2,7 +2,7 @@
 <!-- Ultra-fast, seamless authentication -->
 <!-- Add to theme.liquid before </body> -->
 
-<!-- 
+<!--
   CONFIGURATION: Add these settings to your Shopify theme:
   1. Go to Online Store > Themes > Customize > Theme Settings
   2. Add "Eagle API URL" and "Eagle Accounts URL" settings
@@ -12,15 +12,15 @@
 <script>
 (function() {
   'use strict';
-  
+
   // Configuration: Use Shopify metafields or theme settings for multi-tenant support
-  // Format: {{ shop.metafields.eagle.api_url | default: settings.eagle_api_url | default: 'https://api.eagledtfsupply.com' }}
-  const EAGLE_API = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfsupply.com' }}';
-  const EAGLE_ACCOUNTS = '{{ shop.metafields.eagle.accounts_url | default: 'https://accounts.eagledtfsupply.com' }}';
-  
+  // Format: {{ shop.metafields.eagle.api_url | default: settings.eagle_api_url | default: 'https://api.eagledtfprint.com' }}
+  const EAGLE_API = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfprint.com' }}';
+  const EAGLE_ACCOUNTS = '{{ shop.metafields.eagle.accounts_url | default: 'https://accounts.eagledtfprint.com' }}';
+
   // Shopify customer data
   const customer = {{ customer | json }};
-  
+
   /**
    * Silent Authentication - No page reload, no user interruption
    */
@@ -29,14 +29,14 @@
       if (customer && customer.id) {
         // Shopify → Eagle (Silent)
         const eagleToken = localStorage.getItem('eagle_token');
-        
+
         if (!eagleToken) {
           // Background authentication via hidden iframe
           const iframe = document.createElement('iframe');
           iframe.style.display = 'none';
           iframe.src = `${EAGLE_API}/api/v1/auth/shopify-callback?customer_id=${customer.id}&email=${encodeURIComponent(customer.email)}`;
           document.body.appendChild(iframe);
-          
+
           // Wait for auth response
           window.addEventListener('message', (event) => {
             if (event.origin === EAGLE_API && event.data.type === 'eagle_auth_success') {
@@ -50,7 +50,7 @@
       } else {
         // Eagle → Shopify (Silent)
         const eagleToken = localStorage.getItem('eagle_token');
-        
+
         if (eagleToken && !customer) {
           // Get Shopify SSO URL
           fetch(`${EAGLE_API}/api/v1/auth/shopify-sso`, {
@@ -71,7 +71,7 @@
               iframe.style.display = 'none';
               iframe.src = data.ssoUrl;
               document.body.appendChild(iframe);
-              
+
               // Reload after 1 second to see logged in state
               setTimeout(() => {
                 window.location.reload();
@@ -91,9 +91,9 @@
    */
   function syncCart() {
     if (!customer || !customer.email) return;
-    
+
     let cartSyncTimeout;
-    
+
     // Debounced cart sync (2 seconds after last change)
     function scheduleSync() {
       clearTimeout(cartSyncTimeout);
@@ -101,7 +101,7 @@
         try {
           const cartResponse = await fetch('/cart.js');
           const cart = await cartResponse.json();
-          
+
           if (cart.items && cart.items.length > 0) {
             // Send to Eagle
             await fetch(`${EAGLE_API}/api/v1/abandoned-carts/track`, {
@@ -134,11 +134,11 @@
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
       const result = originalFetch.apply(this, args);
-      
+
       if (args[0] && args[0].toString().includes('/cart')) {
         scheduleSync();
       }
-      
+
       return result;
     };
 
@@ -176,4 +176,3 @@
   }
 })();
 </script>
-

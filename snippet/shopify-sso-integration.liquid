@@ -1,7 +1,7 @@
 <!-- Shopify SSO Integration for Eagle B2B -->
 <!-- Add this to your theme.liquid file, before </body> -->
 
-<!-- 
+<!--
   CONFIGURATION: Use Shopify metafields for multi-tenant support
   Set shop.metafields.eagle.api_url and shop.metafields.eagle.accounts_url
 -->
@@ -9,19 +9,19 @@
 <script>
 (function() {
   'use strict';
-  
+
   // Configuration: Use Shopify metafields for multi-tenant support
-  const EAGLE_API_URL = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfsupply.com' }}';
-  const EAGLE_ACCOUNTS_URL = '{{ shop.metafields.eagle.accounts_url | default: 'https://accounts.eagledtfsupply.com' }}';
-  
+  const EAGLE_API_URL = '{{ shop.metafields.eagle.api_url | default: 'https://api.eagledtfprint.com' }}';
+  const EAGLE_ACCOUNTS_URL = '{{ shop.metafields.eagle.accounts_url | default: 'https://accounts.eagledtfprint.com' }}';
+
   // Check if customer is logged in Shopify
   const shopifyCustomer = {{ customer | json }};
-  
+
   if (shopifyCustomer && shopifyCustomer.id) {
     // Customer is logged in Shopify
     // Check if logged in Eagle
     const eagleToken = localStorage.getItem('eagle_token');
-    
+
     if (!eagleToken) {
       // Not logged in Eagle → Auto-login via SSO callback
       fetch(`${EAGLE_API_URL}/api/v1/auth/shopify-callback?customer_id=${shopifyCustomer.id}&email=${shopifyCustomer.email}`)
@@ -36,7 +36,7 @@
     // Not logged in Shopify
     // Check if logged in Eagle
     const eagleToken = localStorage.getItem('eagle_token');
-    
+
     if (eagleToken) {
       // Logged in Eagle but not Shopify
       // Get SSO URL from Eagle
@@ -105,4 +105,3 @@
   }
 })();
 </script>
-
