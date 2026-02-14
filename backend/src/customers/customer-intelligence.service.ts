@@ -267,6 +267,9 @@ export class CustomerIntelligenceService {
     const customerAgeDays = firstOrderAt
       ? Math.max(1, (now.getTime() - firstOrderAt.getTime()) / (1000 * 60 * 60 * 24))
       : 1;
+    const daysSinceLastOrder = lastOrderAt
+      ? Math.round((now.getTime() - lastOrderAt.getTime()) / (1000 * 60 * 60 * 24))
+      : 999;
     const ordersPerMonth = (orderCount / customerAgeDays) * 30;
 
     // ──── 3. TIME PATTERNS ────
