@@ -9,8 +9,8 @@ env:
   IMAGE_NAME: ghcr.io/jesuisfatih/eagledtfprint-app
 
 jobs:
-  build:
-    name: Build Docker Image
+  build-and-deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,28 +45,21 @@ jobs:
             NEXT_PUBLIC_ADMIN_URL=https://app.eagledtfprint.com
             NEXT_PUBLIC_ACCOUNTS_URL=https://accounts.eagledtfprint.com
 
-  deploy:
-    name: Deploy to Server
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: 104.236.78.45
           username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          key: ${{ secrets.SERVER_SSH_KEY_APPSERVER }}
           script: |
             set -e
 
-            # Login to GHCR
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u jesuisfatih --password-stdin
+            # Pull image from GHCR (public package)
+            docker pull ghcr.io/jesuisfatih/eagledtfprint-app:latest || {
+              echo "Pull failed - checking if image needs login"
+              exit 1
+            }
 
-            # Pull the new image
-            docker pull ghcr.io/jesuisfatih/eagledtfprint-app:latest
-
-            # Deploy with docker compose
             cd /opt/apps/custom/factoryengine/eagledtfprint/
 
             # Stop old container
@@ -76,13 +69,13 @@ jobs:
             # Start with new image
             docker compose up -d
 
-            # Wait for services to be ready
+            # Wait for DB + app
             sleep 10
 
-            # Run Prisma migration if needed
+            # Prisma migration
             docker exec factoryengine-dtfprint-app sh -c 'cd /app/backend && npx prisma db push --skip-generate --accept-data-loss' 2>&1 || true
 
-            # Restart PM2 processes
+            # Restart PM2
             docker exec factoryengine-dtfprint-app pm2 restart all
 
-            echo "✅ Eagle DTF Print deployed successfully!"
+            echo "✅ Eagle DTF Print deployed!"
