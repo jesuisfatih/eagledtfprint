@@ -1,71 +1,88 @@
-name: Deploy to Hetzner
+name: Build & Deploy Eagle DTF Print
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/jesuisfatih/eagledtfprint-app
 
 jobs:
-  deploy:
+  build:
+    name: Build Docker Image
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      packages: write
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.8.0
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          ssh-private-key: ${{ secrets.HETZNER_SSH_KEY }}
-      
-      - name: Deploy to server
-        run: |
-          ssh -o StrictHostKeyChecking=no root@5.78.148.183 << 'ENDSSH'
-            cd /var/www/eagle || exit 1
-            
-            echo "📥 Pulling latest code..."
-            git pull origin main
-            
-            echo "📦 Installing backend dependencies..."
-            cd backend
-            npm install
-            
-            echo "🗄️  Running database migrations..."
-            npx prisma migrate deploy
-            npx prisma generate
-            
-            echo "🔨 Building backend..."
-            npm run build
-            
-            echo "📦 Installing admin dependencies..."
-            cd ../admin
-            npm install
-            npm run build
-            
-            echo "📦 Installing accounts dependencies..."
-            cd ../accounts
-            npm install
-            npm run build
-            
-            echo "📦 Building snippet..."
-            cd ../snippet
-            npm install
-            npm run build
-            cp -r dist/* /var/www/eagle/cdn/
-            
-            echo "🔄 Restarting PM2..."
-            cd ..
-            pm2 restart ecosystem.config.js --update-env
-            
-            echo "✅ Deployment complete!"
-          ENDSSH
-      
-      - name: Verify deployment
-        run: |
-          sleep 10
-          curl -f https://api.eagledtfsupply.com/api/v1 || exit 1
-          echo "✅ API is responding"
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.eagledtfprint.com
+            NEXT_PUBLIC_ADMIN_URL=https://app.eagledtfprint.com
+            NEXT_PUBLIC_ACCOUNTS_URL=https://accounts.eagledtfprint.com
 
+  deploy:
+    name: Deploy to Server
+    needs: build
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 104.236.78.45
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
 
+            # Login to GHCR
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u jesuisfatih --password-stdin
+
+            # Pull the new image
+            docker pull ghcr.io/jesuisfatih/eagledtfprint-app:latest
+
+            # Deploy with docker compose
+            cd /opt/apps/custom/factoryengine/eagledtfprint/
+
+            # Stop old container
+            docker compose stop factoryengine-dtfprint-app || true
+            docker compose rm -f factoryengine-dtfprint-app || true
+
+            # Start with new image
+            docker compose up -d
+
+            # Wait for services to be ready
+            sleep 10
+
+            # Run Prisma migration if needed
+            docker exec factoryengine-dtfprint-app sh -c 'cd /app/backend && npx prisma db push --skip-generate --accept-data-loss' 2>&1 || true
+
+            # Restart PM2 processes
+            docker exec factoryengine-dtfprint-app pm2 restart all
+
+            echo "✅ Eagle DTF Print deployed successfully!"

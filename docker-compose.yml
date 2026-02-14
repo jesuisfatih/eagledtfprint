@@ -25,9 +25,7 @@ services:
 
   # ========== Eagle DTF Print App (API + Admin + Accounts) ==========
   factoryengine-dtfprint-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${APP_IMAGE:-ghcr.io/jesuisfatih/eagledtfprint-app:latest}
     container_name: factoryengine-dtfprint-app
     restart: unless-stopped
     deploy:
