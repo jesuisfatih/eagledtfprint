@@ -41,6 +41,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
+            CACHEBUST=${{ github.sha }}
             NEXT_PUBLIC_API_URL=https://api.eagledtfprint.com
             NEXT_PUBLIC_ADMIN_URL=https://app.eagledtfprint.com
             NEXT_PUBLIC_ACCOUNTS_URL=https://accounts.eagledtfprint.com

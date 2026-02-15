@@ -4,6 +4,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pm2
 
+# Cache bust: ensures code changes invalidate subsequent layers
+ARG CACHEBUST=1
+
 # Copy monorepo contents
 COPY accounts ./accounts
 COPY admin ./admin
