@@ -4,8 +4,8 @@ module.exports = {
       name: 'eagle-api',
       cwd: '/var/www/eagle/backend',
       script: 'dist/src/main.js',
-      instances: 2,
-      exec_mode: 'cluster',
+      instances: 1,
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 4000,
@@ -50,7 +50,3 @@ module.exports = {
     },
   ],
 };
-
-
-
-
