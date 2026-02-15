@@ -75,6 +75,7 @@ export class FingerprintController {
     await this.fingerprintService.processHeartbeat(merchant.id, {
       sessionId: body.sessionId,
       fingerprintHash: body.fingerprintHash,
+      shopifyCustomerId: body.shopifyCustomerId ? BigInt(body.shopifyCustomerId) : undefined,
       eagleToken: body.eagleToken,
       status: body.status || 'online',
       timestamp: body.timestamp,

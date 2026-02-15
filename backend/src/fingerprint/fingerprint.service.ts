@@ -837,12 +837,16 @@ export class FingerprintService {
     merchantId: string;
     sessionId: string;
     fingerprintHash: string;
+    shopifyCustomerId?: string;
     status: string;
     companyId?: string;
     companyName?: string;
     companyUserId?: string;
     userName?: string;
     userEmail?: string;
+    customerOrdersCount?: number;
+    customerTotalSpent?: string;
+    customerTags?: string;
     page: { url: string; path: string; title: string; referrer?: string };
     viewport: { width: number; height: number; scrollY: number };
     platform?: string;
@@ -860,6 +864,7 @@ export class FingerprintService {
   async processHeartbeat(merchantId: string, data: {
     sessionId: string;
     fingerprintHash: string;
+    shopifyCustomerId?: bigint;
     eagleToken?: string;
     status: string;
     timestamp: number;
@@ -870,18 +875,29 @@ export class FingerprintService {
 
     if (data.status === 'offline') {
       this.activePresence.delete(key);
+      // Mark session ended in DB
+      try {
+        await this.prisma.visitorSession.updateMany({
+          where: { merchantId, sessionId: data.sessionId },
+          data: { endedAt: new Date(), lastActivityAt: new Date() },
+        });
+      } catch { /* ignore */ }
       return;
     }
 
-    // Resolve identity from fingerprint/token
+    // Resolve identity from fingerprint/token + ShopifyCustomer
     let companyId: string | undefined;
     let companyName: string | undefined;
     let companyUserId: string | undefined;
     let userName: string | undefined;
     let userEmail: string | undefined;
     let platform: string | undefined;
+    let customerOrdersCount: number | undefined;
+    let customerTotalSpent: string | undefined;
+    let customerTags: string | undefined;
 
     try {
+      // 1. Resolve from fingerprint → VisitorIdentity → Company
       if (data.fingerprintHash) {
         const identity = await this.prisma.visitorIdentity.findFirst({
           where: { merchantId, fingerprint: { fingerprintHash: data.fingerprintHash } },
@@ -896,44 +912,80 @@ export class FingerprintService {
           companyUserId = identity.companyUserId || undefined;
           companyId = identity.companyId || identity.companyUser?.companyId || undefined;
           companyName = identity.companyUser?.company?.name || undefined;
-          userName = identity.companyUser ? `${identity.companyUser.firstName} ${identity.companyUser.lastName}` : undefined;
+          userName = identity.companyUser ? `${identity.companyUser.firstName} ${identity.companyUser.lastName}`.trim() : undefined;
           userEmail = identity.email || identity.companyUser?.email || undefined;
           platform = identity.fingerprint?.platform || undefined;
         }
       }
+
+      // 2. Resolve from shopifyCustomerId → ShopifyCustomer (DB lookup, no API call)
+      if (data.shopifyCustomerId) {
+        const shopifyCustomer = await this.prisma.shopifyCustomer.findFirst({
+          where: { merchantId, shopifyCustomerId: data.shopifyCustomerId },
+        });
+        if (shopifyCustomer) {
+          // ShopifyCustomer data takes precedence for email/name
+          userEmail = shopifyCustomer.email || userEmail;
+          userName = [shopifyCustomer.firstName, shopifyCustomer.lastName].filter(Boolean).join(' ') || userName;
+          customerOrdersCount = shopifyCustomer.ordersCount || 0;
+          customerTotalSpent = shopifyCustomer.totalSpent?.toString() || '0';
+          customerTags = shopifyCustomer.tags || undefined;
+        }
+      }
     } catch { /* continue without identity */ }
 
+    // 3. DB-centric: Update VisitorSession (persist activity)
+    const now = new Date();
+    try {
+      const session = await this.prisma.visitorSession.findFirst({
+        where: { merchantId, sessionId: data.sessionId },
+        select: { startedAt: true },
+      });
+
+      if (session) {
+        const durationSeconds = Math.floor((now.getTime() - session.startedAt.getTime()) / 1000);
+        await this.prisma.visitorSession.updateMany({
+          where: { merchantId, sessionId: data.sessionId },
+          data: {
+            lastActivityAt: now,
+            exitPage: data.page?.path || undefined,
+            durationSeconds,
+            ...(data.shopifyCustomerId ? {
+              shopifyCustomerId: data.shopifyCustomerId,
+              isLoggedIn: true,
+            } : {}),
+            ...(companyId ? { companyId } : {}),
+            ...(companyUserId ? { companyUserId } : {}),
+          },
+        });
+      }
+    } catch { /* ignore DB errors */ }
+
+    // 4. In-memory cache (fast layer for real-time UI)
     this.activePresence.set(key, {
       merchantId,
       sessionId: data.sessionId,
       fingerprintHash: data.fingerprintHash,
+      shopifyCustomerId: data.shopifyCustomerId?.toString(),
       status: data.status,
       companyId,
       companyName,
       companyUserId,
       userName,
       userEmail,
+      customerOrdersCount,
+      customerTotalSpent,
+      customerTags,
       page: data.page || {},
       viewport: data.viewport || {},
       platform,
       lastSeen: Date.now(),
     });
 
-    // Also update the session's last_activity_at
-    try {
-      await this.prisma.visitorSession.updateMany({
-        where: { merchantId, sessionId: data.sessionId },
-        data: {
-          lastActivityAt: new Date(),
-          exitPage: data.page?.path,
-        },
-      });
-    } catch { /* ignore */ }
-
     // Cleanup stale entries (older than 60s)
-    const now = Date.now();
+    const nowMs = Date.now();
     for (const [k, v] of this.activePresence.entries()) {
-      if (now - v.lastSeen > 60000) {
+      if (nowMs - v.lastSeen > 60000) {
         this.activePresence.delete(k);
       }
     }
@@ -982,55 +1034,128 @@ export class FingerprintService {
     }
   }
 
-  // ============================
-  // ACTIVE VISITORS (Admin)
-  // ============================
-
+  /**
+   * Get active visitors — DB-centric with in-memory enrichment.
+   * DB query: sessions active in last 60s, JOINed with ShopifyCustomer for identity.
+   * Map: ephemeral data like viewport, scrollY, exact page title.
+   */
   async getActiveVisitors(merchantId: string) {
+    const sixtySecondsAgo = new Date(Date.now() - 60000);
+
+    // DB query: all sessions active in last 60 seconds
+    const dbSessions = await this.prisma.visitorSession.findMany({
+      where: {
+        merchantId,
+        lastActivityAt: { gte: sixtySecondsAgo },
+        isBot: false,
+      },
+      include: {
+        fingerprint: { select: { platform: true, userAgent: true } },
+        company: { select: { id: true, name: true } },
+        companyUser: { select: { id: true, email: true, firstName: true, lastName: true } },
+      },
+      orderBy: { lastActivityAt: 'desc' },
+      take: 100,
+    });
+
+    // Batch lookup ShopifyCustomers for logged-in sessions
+    const shopifyCustomerIds = dbSessions
+      .filter(s => s.shopifyCustomerId)
+      .map(s => s.shopifyCustomerId!);
+
+    const shopifyCustomerMap = new Map<string, any>();
+    if (shopifyCustomerIds.length > 0) {
+      const customers = await this.prisma.shopifyCustomer.findMany({
+        where: { merchantId, shopifyCustomerId: { in: shopifyCustomerIds } },
+        select: {
+          shopifyCustomerId: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          ordersCount: true,
+          totalSpent: true,
+          tags: true,
+        },
+      });
+      for (const c of customers) {
+        shopifyCustomerMap.set(c.shopifyCustomerId.toString(), c);
+      }
+    }
+
+    // Build visitor list, enriching DB data with in-memory cache
     const now = Date.now();
-    const active: any[] = [];
+    const visitors: any[] = [];
+    let totalOnline = 0;
+    let totalAway = 0;
+    let identifiedCount = 0;
+    const companyIds = new Set<string>();
 
-    for (const [, presence] of this.activePresence.entries()) {
-      if (presence.merchantId !== merchantId) continue;
-      if (now - presence.lastSeen > 60000) continue; // Stale
+    for (const session of dbSessions) {
+      const cacheKey = `${merchantId}:${session.sessionId}`;
+      const cached = this.activePresence.get(cacheKey);
 
-      active.push({
-        sessionId: presence.sessionId,
-        status: presence.status,
-        companyId: presence.companyId,
-        companyName: presence.companyName,
-        companyUserId: presence.companyUserId,
-        userName: presence.userName,
-        userEmail: presence.userEmail,
-        platform: presence.platform,
-        currentPage: presence.page,
-        viewport: presence.viewport,
-        isIdentified: !!(presence.companyUserId || presence.userEmail),
-        lastSeen: new Date(presence.lastSeen),
-        secondsAgo: Math.round((now - presence.lastSeen) / 1000),
+      // Determine customer info (DB ShopifyCustomer > CompanyUser > cache)
+      const shopifyCustomer = session.shopifyCustomerId
+        ? shopifyCustomerMap.get(session.shopifyCustomerId.toString())
+        : null;
+
+      const email = shopifyCustomer?.email || session.companyUser?.email || cached?.userEmail || null;
+      const name = shopifyCustomer
+        ? [shopifyCustomer.firstName, shopifyCustomer.lastName].filter(Boolean).join(' ')
+        : session.companyUser
+          ? [session.companyUser.firstName, session.companyUser.lastName].filter(Boolean).join(' ')
+          : cached?.userName || null;
+
+      const companyNameResolved = session.company?.name || cached?.companyName || null;
+      const isIdentified = !!(email || name || session.isLoggedIn);
+      const status = cached?.status || 'online';
+
+      if (status === 'online') totalOnline++;
+      if (status === 'away') totalAway++;
+      if (isIdentified) identifiedCount++;
+      if (session.companyId) companyIds.add(session.companyId);
+
+      visitors.push({
+        sessionId: session.sessionId,
+        status,
+        companyId: session.companyId || cached?.companyId || null,
+        companyName: companyNameResolved,
+        companyUserId: session.companyUserId || cached?.companyUserId || null,
+        userName: name,
+        userEmail: email,
+        platform: session.fingerprint?.platform || cached?.platform || null,
+        currentPage: cached?.page || { path: session.exitPage, title: '', url: '' },
+        viewport: cached?.viewport || { width: 0, height: 0 },
+        isIdentified,
+        isLoggedIn: session.isLoggedIn,
+        shopifyCustomerId: session.shopifyCustomerId?.toString() || null,
+        customerOrdersCount: shopifyCustomer?.ordersCount || cached?.customerOrdersCount || 0,
+        customerTotalSpent: shopifyCustomer?.totalSpent?.toString() || cached?.customerTotalSpent || '0',
+        customerTags: shopifyCustomer?.tags || cached?.customerTags || null,
+        durationSeconds: session.durationSeconds,
+        pageViews: session.pageViews,
+        landingPage: session.landingPage,
+        startedAt: session.startedAt.toISOString(),
+        lastSeen: session.lastActivityAt.toISOString(),
+        secondsAgo: Math.round((now - session.lastActivityAt.getTime()) / 1000),
       });
     }
 
-    // Sort: identified users first, then by last seen
-    active.sort((a, b) => {
+    // Sort: identified first, then by recency
+    visitors.sort((a: any, b: any) => {
       if (a.isIdentified && !b.isIdentified) return -1;
       if (!a.isIdentified && b.isIdentified) return 1;
-      return b.lastSeen - a.lastSeen;
+      return a.secondsAgo - b.secondsAgo;
     });
-
-    // Aggregate stats
-    const totalOnline = active.filter(a => a.status === 'online').length;
-    const totalAway = active.filter(a => a.status === 'away').length;
-    const identifiedCount = active.filter(a => a.isIdentified).length;
-    const companies = [...new Set(active.filter(a => a.companyId).map(a => a.companyId))];
 
     return {
       totalOnline,
       totalAway,
-      totalVisitors: active.length,
+      totalVisitors: visitors.length,
       identifiedCount,
-      activeCompanyCount: companies.length,
-      visitors: active,
+      loggedInCount: visitors.filter((v: any) => v.isLoggedIn).length,
+      activeCompanyCount: companyIds.size,
+      visitors,
     };
   }
 

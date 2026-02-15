@@ -872,6 +872,7 @@ model VisitorSession {
   companyId       String? @map("company_id")
 
   sessionId       String  @map("session_id")
+  shopifyCustomerId BigInt? @map("shopify_customer_id")
   ipAddress       String? @map("ip_address")
   userAgent       String? @map("user_agent")
   platform        String?
@@ -924,7 +925,10 @@ model VisitorSession {
   @@index([fingerprintId])
   @@index([companyUserId])
   @@index([companyId])
+  @@index([shopifyCustomerId])
   @@index([startedAt])
+  @@index([lastActivityAt])
+  @@index([isLoggedIn])
   @@index([trafficChannel])
   @@index([utmSource])
   @@index([utmCampaign])

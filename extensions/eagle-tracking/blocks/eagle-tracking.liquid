@@ -10,6 +10,7 @@
   id="eagle-b2b-snippet"
   data-api-url="{{ block.settings.api_url }}"
   data-shop="{{ shop.permanent_domain }}"
+  data-customer-id="{{ customer.id | default: '' }}"
   src="{{ block.settings.cdn_url | default: 'https://cdn.eagledtfprint.com/snippet.iife.js' }}"
   defer
 ></script>

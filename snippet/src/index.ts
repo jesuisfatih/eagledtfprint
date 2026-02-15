@@ -104,6 +104,7 @@ class EagleSnippet {
         shop: this.config.shop,
         sessionId: this.sessionId,
         fingerprintHash: this.fingerprintHash,
+        shopifyCustomerId: this.customerId || undefined,
         status: 'offline',
         timestamp: Date.now(),
       });
@@ -120,32 +121,33 @@ class EagleSnippet {
     });
   }
 
-  private async sendHeartbeat(status: string = 'online') {
+  private sendHeartbeat(status: string = 'online') {
     try {
-      await fetch(`${this.config.apiUrl}/api/v1/fingerprint/heartbeat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shop: this.config.shop,
-          sessionId: this.sessionId,
-          fingerprintHash: this.fingerprintHash,
-          eagleToken: this.config.token || localStorage.getItem('eagle_token'),
-          status,
-          timestamp: Date.now(),
-          page: {
-            url: window.location.href,
-            path: window.location.pathname,
-            title: document.title,
-            referrer: document.referrer,
-          },
-          viewport: {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            scrollY: window.scrollY,
-          },
-        }),
-        keepalive: true,
+      const payload = JSON.stringify({
+        shop: this.config.shop,
+        sessionId: this.sessionId,
+        fingerprintHash: this.fingerprintHash,
+        shopifyCustomerId: this.customerId || undefined,
+        eagleToken: this.config.token || localStorage.getItem('eagle_token'),
+        status,
+        timestamp: Date.now(),
+        page: {
+          url: window.location.href,
+          path: window.location.pathname,
+          title: document.title,
+          referrer: document.referrer,
+        },
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          scrollY: window.scrollY,
+        },
       });
+      // Use sendBeacon for reliability (fires even if page is closing)
+      navigator.sendBeacon(
+        `${this.config.apiUrl}/api/v1/fingerprint/heartbeat`,
+        new Blob([payload], { type: 'application/json' })
+      );
     } catch { /* silent */ }
   }
 
@@ -602,9 +604,17 @@ class EagleSnippet {
   }
 
   private detectShopifyCustomerId(): string | null {
+    // Primary: ShopifyAnalytics (works with both New + Classic Customer Accounts)
     if (window.ShopifyAnalytics?.meta?.page?.customerId) {
       return window.ShopifyAnalytics.meta.page.customerId.toString();
     }
+    // Secondary: Liquid data attribute fallback (Classic Accounts only)
+    const tag = document.querySelector('#eagle-b2b-snippet');
+    const liquidId = tag?.getAttribute('data-customer-id');
+    if (liquidId && liquidId !== '') {
+      return liquidId;
+    }
+    // Tertiary: window.Shopify.customer (some themes expose this)
     if (window.Shopify?.customer?.id) {
       return window.Shopify.customer.id.toString();
     }
@@ -612,10 +622,30 @@ class EagleSnippet {
   }
 
   private detectCustomer() {
-    const customerId = this.detectShopifyCustomerId();
-    if (customerId) {
-      this.customerId = customerId;
+    this.resolveCustomerId(0);
+  }
+
+  /**
+   * ShopifyAnalytics loads async — retry up to 5 times (200ms apart).
+   * Once found, persist in localStorage so identity survives page navigation.
+   */
+  private resolveCustomerId(attempt: number) {
+    const cid = this.detectShopifyCustomerId();
+    if (cid) {
+      this.customerId = cid;
+      localStorage.setItem('eagle_cid', cid);
       this.syncCustomerToEagle();
+      return;
+    }
+    // Check localStorage (persisted from previous page)
+    const cached = localStorage.getItem('eagle_cid');
+    if (cached) {
+      this.customerId = cached;
+      return;
+    }
+    // Retry (ShopifyAnalytics may not be ready yet)
+    if (attempt < 5) {
+      setTimeout(() => this.resolveCustomerId(attempt + 1), 200);
     }
   }
 
