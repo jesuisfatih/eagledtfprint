@@ -1,6 +1,6 @@
 'use client';
 
-import { showToast } from '@/components/ui';
+import { showToast, Tabs } from '@/components/ui';
 import { adminFetch } from '@/lib/api-client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -126,29 +126,11 @@ export default function CompanyIntelligencePage() {
       )}
 
       {/* Tabs */}
-      <div style={{
-        display: 'flex', gap: 4, marginBottom: 20, padding: '4px',
-        background: 'var(--bg-secondary)', borderRadius: 12, width: 'fit-content',
-      }}>
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 500,
-              background: activeTab === t.key ? 'var(--bg-primary)' : 'transparent',
-              color: activeTab === t.key ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: activeTab === t.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <i className={`ti ti-${t.icon}`} style={{ fontSize: 14 }} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={tabs.map(t => ({ id: t.key, label: t.label, icon: t.icon }))}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Overview Tab */}
       {activeTab === 'overview' && dashboard && (

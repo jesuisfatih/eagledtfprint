@@ -206,36 +206,11 @@ export default function OrdersPage() {
       />
 
       {/* Filter tabs */}
-      <div style={{
-        display: 'flex', gap: 8, marginBottom: 16, padding: '4px',
-        background: 'var(--bg-secondary)', borderRadius: 12, width: 'fit-content',
-      }}>
-        {filterButtons.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setActiveFilter(f.key)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 500,
-              background: activeFilter === f.key ? 'var(--bg-primary)' : 'transparent',
-              color: activeFilter === f.key ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: activeFilter === f.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <i className={`ti ti-${f.icon}`} style={{ fontSize: 14 }} />
-            {f.label}
-            <span style={{
-              padding: '1px 6px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-              background: activeFilter === f.key ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-              color: activeFilter === f.key ? '#fff' : 'var(--text-tertiary)',
-            }}>
-              {f.count}
-            </span>
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={filterButtons.map(f => ({ id: f.key, label: f.label, icon: f.icon, count: f.count }))}
+        active={activeFilter}
+        onChange={setActiveFilter}
+      />
 
       <div className="stats-grid">
         <StatsCard title="Total Orders" value={stats.total} icon="shopping-cart" iconColor="primary" loading={loading} />

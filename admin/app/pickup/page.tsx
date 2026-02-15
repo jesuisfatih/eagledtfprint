@@ -168,10 +168,10 @@ export default function PickupPage() {
       {/* Tabs */}
       <div className="apple-tabs" style={{ marginBottom: 20 }}>
         <button className={`apple-tab ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-          <i className="ti ti-package" style={{ marginRight: 6 }} /> Pickup Orders
+          <i className="ti ti-package" /> Pickup Orders
         </button>
         <button className={`apple-tab ${activeTab === 'shelves' ? 'active' : ''}`} onClick={() => setActiveTab('shelves')}>
-          <i className="ti ti-layout-grid" style={{ marginRight: 6 }} /> Shelf Management
+          <i className="ti ti-layout-grid" /> Shelf Management
         </button>
       </div>
 

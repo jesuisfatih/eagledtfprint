@@ -157,10 +157,10 @@ export function Tabs({ tabs, active, activeTab, onChange }: TabsProps) {
           className={`apple-tab ${current === tab.id ? 'active' : ''}`}
           onClick={() => onChange(tab.id)}
         >
-          {tab.icon && <i className={`ti ti-${tab.icon}`} style={{ fontSize: 16 }} />}
+          {tab.icon && <i className={`ti ti-${tab.icon}`} />}
           {tab.label}
           {tab.count !== undefined && (
-            <span className="badge-apple info" style={{ marginLeft: 6, fontSize: 11 }}>
+            <span className="tab-count">
               {tab.count}
             </span>
           )}
