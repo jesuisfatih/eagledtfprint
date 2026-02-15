@@ -7,6 +7,7 @@ import {
     PageHeader,
     StatsCard,
     StatusBadge,
+    Tabs,
     showToast
 } from '@/components/ui';
 import { adminFetch } from '@/lib/api-client';
