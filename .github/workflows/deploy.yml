@@ -47,11 +47,11 @@ jobs:
             NEXT_PUBLIC_ACCOUNTS_URL=https://accounts.eagledtfprint.com
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 104.236.78.45
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY_APPSERVER }}
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
 
