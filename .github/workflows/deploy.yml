@@ -74,7 +74,7 @@ jobs:
             sleep 10
 
             # Prisma migration
-            docker exec factoryengine-dtfprint-app sh -c 'cd /app/backend && npx prisma db push --skip-generate --accept-data-loss' 2>&1 || true
+            docker exec factoryengine-dtfprint-app sh -c 'cd /app/backend && npx prisma db push --accept-data-loss' 2>&1 || true
 
             # Restart PM2
             docker exec factoryengine-dtfprint-app pm2 restart all
