@@ -44,7 +44,7 @@ export class PenpotService implements OnModuleInit {
       const authToken = loginRes.data?.['auth-token'] || loginRes.headers['set-cookie']?.[0]?.split('=')?.[1]?.split(';')?.[0];
 
       if (!authToken) {
-        this.logger.error('Failed to extract auth token from Penpot login response');
+        this.logger.error(`Failed to extract auth token from Penpot login response. Data: ${JSON.stringify(loginRes.data)}`);
         return;
       }
 
@@ -60,7 +60,9 @@ export class PenpotService implements OnModuleInit {
       this.initialized = true;
       this.logger.log(`Penpot API client initialized → ${host}`);
     } catch (err: any) {
-      this.logger.error(`Failed to init Penpot API client: ${err.message}`);
+      const status = err.response?.status;
+      const data = err.response?.data;
+      this.logger.error(`Failed to init Penpot API client [${status}]: ${err.message}. Data: ${JSON.stringify(data)}`);
     }
   }
 

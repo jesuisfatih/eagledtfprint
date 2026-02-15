@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosInstance } from 'axios';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -13,22 +14,31 @@ export class DittofeedService implements OnModuleInit {
 
   async onModuleInit() {
     const writeKey = process.env.DITTOFEED_WRITE_KEY;
-    const host = process.env.DITTOFEED_HOST || 'http://multiservice-dittofeed:3010';
+    const host = process.env.DITTOFEED_HOST || 'http://multiservice-dittofeed:3000';
 
     if (!writeKey) {
       this.logger.warn('DITTOFEED_WRITE_KEY not set — Dittofeed integration disabled');
       return;
     }
 
-    try {
-      this.client = axios.create({
+    // Dittofeed's Segment-compatible API uses Basic auth
+    // writeKey format: "writeKeyId:writeKeySecret" base64-encoded
+    const authHeader = writeKey.includes(':')
+      ? `Basic ${Buffer.from(writeKey).toString('base64')}`
+      : `Basic ${writeKey}`; // already base64-encoded from dashboard
+
+    const createClient = () =>
+      axios.create({
         baseURL: host,
         headers: {
-          'Authorization': `Bearer ${writeKey}`,
+          'Authorization': authHeader,
           'Content-Type': 'application/json',
         },
-        timeout: 5000,
+        timeout: 10000,
       });
+
+    try {
+      this.client = createClient();
 
       // Test connectivity
       await this.client.get('/api/public/health');
@@ -37,14 +47,7 @@ export class DittofeedService implements OnModuleInit {
     } catch (err) {
       this.logger.error('Failed to init Dittofeed HTTP client', err);
       // Still mark as initialized — we'll retry on each call
-      this.client = axios.create({
-        baseURL: host,
-        headers: {
-          'Authorization': `Bearer ${writeKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 5000,
-      });
+      this.client = createClient();
       this.initialized = true;
       this.logger.warn('Dittofeed initialized with retry mode (health check failed)');
     }
@@ -60,11 +63,15 @@ export class DittofeedService implements OnModuleInit {
 
     try {
       await this.client!.post('/api/public/apps/identify', {
+        messageId: randomUUID(),
+        timestamp: new Date().toISOString(),
         userId,
         traits,
       });
     } catch (err: any) {
-      this.logger.error(`Failed to identify user ${userId}: ${err.message}`);
+      const status = err.response?.status;
+      const data = err.response?.data;
+      this.logger.error(`Failed to identify user ${userId}: ${err.message} [${status}] ${JSON.stringify(data)}`);
     }
   }
 
@@ -74,15 +81,16 @@ export class DittofeedService implements OnModuleInit {
 
     try {
       await this.client!.post('/api/public/apps/track', {
+        messageId: randomUUID(),
+        timestamp: new Date().toISOString(),
         userId,
         event,
-        properties: {
-          ...properties,
-          timestamp: new Date().toISOString(),
-        },
+        properties,
       });
     } catch (err: any) {
-      this.logger.error(`Failed to track event ${event} for user ${userId}: ${err.message}`);
+      const status = err.response?.status;
+      const data = err.response?.data;
+      this.logger.error(`Failed to track event ${event} for user ${userId}: ${err.message} [${status}] ${JSON.stringify(data)}`);
     }
   }
 
@@ -107,10 +115,16 @@ export class DittofeedService implements OnModuleInit {
 
     try {
       await this.client!.post('/api/public/apps/batch', {
-        batch: events,
+        batch: events.map(e => ({
+          messageId: randomUUID(),
+          timestamp: new Date().toISOString(),
+          ...e,
+        })),
       });
     } catch (err: any) {
-      this.logger.error(`Failed to send batch: ${err.message}`);
+      const status = err.response?.status;
+      const data = err.response?.data;
+      this.logger.error(`Failed to send batch: ${err.message} [${status}] ${JSON.stringify(data)}`);
     }
   }
 
