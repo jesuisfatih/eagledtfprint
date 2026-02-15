@@ -46,11 +46,12 @@ RUN cd /app/admin && npm run build
 RUN cd /app/accounts && npm run build
 
 # PM2 ecosystem config
+# Use next binary directly with explicit -p PORT to prevent EADDRINUSE conflicts
 RUN echo '{\
   "apps": [\
     {"name":"eagle-api","cwd":"/app/backend","script":"node","args":"dist/src/main.js","env":{"NODE_ENV":"production","PORT":"4000"}},\
-    {"name":"eagle-admin","cwd":"/app/admin","script":"npm","args":"start","env":{"NODE_ENV":"production","PORT":"3000"}},\
-    {"name":"eagle-accounts","cwd":"/app/accounts","script":"npm","args":"start","env":{"NODE_ENV":"production","PORT":"3001"}}\
+    {"name":"eagle-admin","cwd":"/app/admin","script":"node_modules/next/dist/bin/next","args":"start -p 3000","env":{"NODE_ENV":"production","PORT":"3000"}},\
+    {"name":"eagle-accounts","cwd":"/app/accounts","script":"node_modules/next/dist/bin/next","args":"start -p 3001","env":{"NODE_ENV":"production","PORT":"3001"}}\
   ]\
 }' > /app/ecosystem.config.json
 
