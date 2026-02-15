@@ -19,6 +19,7 @@ import { CommonModule } from './common/common.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { CompaniesModule } from './companies/companies.module';
 import { DittofeedModule } from './dittofeed/dittofeed.module';
+import { EventBusModule } from './event-bus/event-bus.module';
 import { EventsModule } from './events/events.module';
 import { FingerprintModule } from './fingerprint/fingerprint.module';
 import { InvoiceModule } from './invoices/invoices.module';
@@ -26,6 +27,7 @@ import { MailModule } from './mail/mail.module';
 import { MerchantsModule } from './merchants/merchants.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
+import { PenpotModule } from './penpot/penpot.module';
 import { PickupModule } from './pickup/pickup.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -111,6 +113,8 @@ import { WishlistModule } from './wishlist/wishlist.module';
     DittofeedModule,
     InvoiceModule,
     PickupModule,
+    PenpotModule,
+    EventBusModule,
   ],
   controllers: [AppController],
   providers: [

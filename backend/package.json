@@ -21,7 +21,6 @@
     "seed:test-users": "ts-node -r tsconfig-paths/register src/seed-test-users.ts"
   },
   "dependencies": {
-    "@dittofeed/sdk-node": "^0.4.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bull": "^11.0.4",
     "@nestjs/common": "^11.0.1",

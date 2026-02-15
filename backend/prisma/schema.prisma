@@ -56,6 +56,8 @@ model Merchant {
   pickupOrders   PickupOrder[]
   proactiveOffers ProactiveOffer[]
   customerLists  CustomerList[]
+  designProjects DesignProject[]
+  marketingSyncs MarketingSync[]
 
   @@index([shopDomain])
   @@index([status])
@@ -309,6 +311,7 @@ model Company {
   quotes              Quote[]
   invoices            Invoice[]
   pickupOrders        PickupOrder[]
+  designProjects      DesignProject[]
 
   @@index([merchantId])
   @@index([status])
@@ -355,6 +358,7 @@ model CompanyUser {
   quotes         Quote[]
   invoices       Invoice[]
   pickupOrders   PickupOrder[]
+  designProjects DesignProject[]
 
   @@index([companyId])
   @@index([email])
@@ -668,6 +672,7 @@ model OrderLocal {
   relatedCarts Cart[]
   invoices     Invoice[]
   pickupOrders PickupOrder[]
+  designProjects DesignProject[]
 
   @@unique([merchantId, shopifyOrderId])
   @@index([merchantId])
@@ -1615,4 +1620,87 @@ model PickupOrder {
   @@index([qrCode])
   @@index([status])
   @@map("pickup_orders")
+}
+
+// ============================================
+// DESIGN PROJECTS (Penpot Integration)
+// ============================================
+
+model DesignProject {
+  id              String   @id @default(uuid())
+  merchantId      String   @map("merchant_id")
+  orderId         String?  @map("order_id")
+  companyId       String?  @map("company_id")
+  companyUserId   String?  @map("company_user_id")
+
+  penpotProjectId String   @unique @map("penpot_project_id")
+  penpotFileId    String?  @map("penpot_file_id")
+
+  title           String?
+  status          String   @default("draft") // draft, in_progress, review, approved, exported
+  templateUsed    String?  @map("template_used")
+
+  // Multi-file support: how many design files this project contains
+  fileCount       Int      @default(1) @map("file_count")
+
+  // Design metadata: pages, dimensions per file, source URLs
+  designMeta      Json?    @map("design_meta")
+
+  // Quality metrics
+  dpiCheck        Boolean  @default(false) @map("dpi_check")
+  colorProfile    String?  @map("color_profile") // RGB, CMYK
+  exportFormat    String?  @map("export_format") // SVG, PDF, PNG
+  exportUrl       String?  @map("export_url")
+  thumbnailUrl    String?  @map("thumbnail_url")
+
+  // Timing
+  totalEditTime   Int      @default(0) @map("total_edit_time") // seconds
+  lastEditedAt    DateTime? @map("last_edited_at")
+  exportedAt      DateTime? @map("exported_at")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  order       OrderLocal?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  company     Company?     @relation(fields: [companyId], references: [id])
+  companyUser CompanyUser? @relation(fields: [companyUserId], references: [id])
+
+  @@index([merchantId])
+  @@index([orderId])
+  @@index([companyId])
+  @@index([status])
+  @@map("design_projects")
+}
+
+// ============================================
+// MARKETING SYNC (Dittofeed + Penpot Sync State)
+// ============================================
+
+model MarketingSync {
+  id              String   @id @default(uuid())
+  merchantId      String   @map("merchant_id")
+  entityType      String   @map("entity_type") // company, user, order, design, penpot_team
+  entityId        String   @map("entity_id")
+
+  dittofeedUserId String?  @map("dittofeed_user_id")
+  lastSyncedAt    DateTime? @map("last_synced_at")
+  syncStatus      String   @default("pending") // pending, synced, failed
+  lastError       String?  @map("last_error")
+
+  // Traits snapshot (what was last sent to Dittofeed)
+  lastTraits      Json?    @map("last_traits")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, entityType, entityId])
+  @@index([merchantId])
+  @@index([entityType])
+  @@index([syncStatus])
+  @@map("marketing_syncs")
 }

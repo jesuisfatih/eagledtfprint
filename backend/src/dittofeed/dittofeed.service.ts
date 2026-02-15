@@ -1,18 +1,19 @@
-import { DittofeedSdk } from '@dittofeed/sdk-node';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import axios, { AxiosInstance } from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class DittofeedService implements OnModuleInit {
   private readonly logger = new Logger(DittofeedService.name);
+  private client: AxiosInstance | null = null;
   private initialized = false;
 
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
     const writeKey = process.env.DITTOFEED_WRITE_KEY;
-    const host = process.env.DITTOFEED_HOST || 'http://localhost:3010';
+    const host = process.env.DITTOFEED_HOST || 'http://multiservice-dittofeed:3010';
 
     if (!writeKey) {
       this.logger.warn('DITTOFEED_WRITE_KEY not set — Dittofeed integration disabled');
@@ -20,19 +21,100 @@ export class DittofeedService implements OnModuleInit {
     }
 
     try {
-      await DittofeedSdk.init({ writeKey, host });
+      this.client = axios.create({
+        baseURL: host,
+        headers: {
+          'Authorization': `Bearer ${writeKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 5000,
+      });
+
+      // Test connectivity
+      await this.client.get('/api/public/health');
       this.initialized = true;
-      this.logger.log('Dittofeed SDK initialized');
+      this.logger.log(`Dittofeed HTTP client initialized → ${host}`);
     } catch (err) {
-      this.logger.error('Failed to init Dittofeed SDK', err);
+      this.logger.error('Failed to init Dittofeed HTTP client', err);
+      // Still mark as initialized — we'll retry on each call
+      this.client = axios.create({
+        baseURL: host,
+        headers: {
+          'Authorization': `Bearer ${writeKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 5000,
+      });
+      this.initialized = true;
+      this.logger.warn('Dittofeed initialized with retry mode (health check failed)');
     }
   }
 
   private isReady(): boolean {
-    return this.initialized;
+    return this.initialized && this.client !== null;
   }
 
-  // ─── IDENTIFY: Sync a company user to Dittofeed ───
+  // ─── IDENTIFY: Sync a user to Dittofeed via HTTP API ───
+  async identifyUser(userId: string, traits: Record<string, any>) {
+    if (!this.isReady()) return;
+
+    try {
+      await this.client!.post('/api/public/apps/identify', {
+        userId,
+        traits,
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to identify user ${userId}: ${err.message}`);
+    }
+  }
+
+  // ─── TRACK: Send event via HTTP API ───
+  async trackEvent(userId: string, event: string, properties: Record<string, any> = {}) {
+    if (!this.isReady()) return;
+
+    try {
+      await this.client!.post('/api/public/apps/track', {
+        userId,
+        event,
+        properties: {
+          ...properties,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to track event ${event} for user ${userId}: ${err.message}`);
+    }
+  }
+
+  // ─── PAGE: Track page view via HTTP API ───
+  async trackPage(userId: string, pageName: string, properties: Record<string, any> = {}) {
+    if (!this.isReady()) return;
+
+    try {
+      await this.client!.post('/api/public/apps/page', {
+        userId,
+        name: pageName,
+        properties,
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to track page ${pageName}: ${err.message}`);
+    }
+  }
+
+  // ─── BATCH: Send multiple events at once ───
+  async batch(events: Array<{ type: 'identify' | 'track' | 'page'; userId: string; [key: string]: any }>) {
+    if (!this.isReady()) return;
+
+    try {
+      await this.client!.post('/api/public/apps/batch', {
+        batch: events,
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to send batch: ${err.message}`);
+    }
+  }
+
+  // ─── IDENTIFY COMPANY USER: Sync a company user with all traits ───
   async identifyCompanyUser(user: {
     id: string;
     email: string;
@@ -42,63 +124,31 @@ export class DittofeedService implements OnModuleInit {
     companyId: string;
     companyName?: string;
     companyStatus?: string;
+    merchantId?: string;
+    merchantDomain?: string;
   }) {
-    if (!this.isReady()) return;
-
-    try {
-      DittofeedSdk.identify({
-        userId: user.id,
-        traits: {
-          email: user.email,
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          role: user.role || 'member',
-          companyId: user.companyId,
-          companyName: user.companyName || '',
-          companyStatus: user.companyStatus || 'active',
-          platform: 'eagle-engine',
-        },
-      });
-      await DittofeedSdk.flush();
-    } catch (err) {
-      this.logger.error(`Failed to identify user ${user.id}`, err);
-    }
-  }
-
-  // ─── TRACK: Send event to Dittofeed ───
-  async trackEvent(userId: string, event: string, properties: Record<string, any> = {}) {
-    if (!this.isReady()) return;
-
-    try {
-      DittofeedSdk.track({
-        userId,
-        event,
-        properties,
-      });
-      await DittofeedSdk.flush();
-    } catch (err) {
-      this.logger.error(`Failed to track event ${event} for user ${userId}`, err);
-    }
-  }
-
-  // ─── PAGE: Track page view ───
-  async trackPage(userId: string, pageName: string, properties: Record<string, any> = {}) {
-    if (!this.isReady()) return;
-
-    try {
-      DittofeedSdk.page({
-        userId,
-        name: pageName,
-        properties,
-      });
-    } catch (err) {
-      this.logger.error(`Failed to track page ${pageName}`, err);
-    }
+    await this.identifyUser(user.id, {
+      email: user.email,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      role: user.role || 'member',
+      companyId: user.companyId,
+      companyName: user.companyName || '',
+      companyStatus: user.companyStatus || 'active',
+      merchantId: user.merchantId || '',
+      merchantDomain: user.merchantDomain || '',
+      platform: 'eagle-engine',
+    });
   }
 
   // ─── FULL SYNC: Sync all companies + users for a merchant ───
   async syncAllCompanies(merchantId: string) {
     if (!this.isReady()) return { synced: 0 };
+
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: { shopDomain: true },
+    });
 
     const companies = await this.prisma.company.findMany({
       where: { merchantId },
@@ -106,20 +156,37 @@ export class DittofeedService implements OnModuleInit {
     });
 
     let synced = 0;
+    const batchEvents: any[] = [];
+
     for (const company of companies) {
       for (const user of company.users) {
-        await this.identifyCompanyUser({
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName || undefined,
-          lastName: user.lastName || undefined,
-          role: user.role,
-          companyId: company.id,
-          companyName: company.name,
-          companyStatus: company.status,
+        batchEvents.push({
+          type: 'identify',
+          userId: user.id,
+          traits: {
+            email: user.email,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            role: user.role,
+            companyId: company.id,
+            companyName: company.name,
+            companyStatus: company.status,
+            merchantId,
+            merchantDomain: merchant?.shopDomain || '',
+            platform: 'eagle-engine',
+          },
         });
         synced++;
+
+        // Flush in batches of 50
+        if (batchEvents.length >= 50) {
+          await this.batch(batchEvents.splice(0));
+        }
       }
+    }
+
+    if (batchEvents.length > 0) {
+      await this.batch(batchEvents);
     }
 
     this.logger.log(`Synced ${synced} company users to Dittofeed for merchant ${merchantId}`);
@@ -138,13 +205,14 @@ export class DittofeedService implements OnModuleInit {
     });
 
     let synced = 0;
+    const batchEvents: any[] = [];
+
     for (const intel of intels) {
-      // Push intelligence traits to each user of the company
       for (const user of intel.company.users) {
-        DittofeedSdk.identify({
+        batchEvents.push({
+          type: 'identify',
           userId: user.id,
           traits: {
-            // Company intelligence metrics
             engagementScore: Number(intel.engagementScore),
             buyerIntent: intel.buyerIntent,
             segment: intel.segment,
@@ -162,10 +230,17 @@ export class DittofeedService implements OnModuleInit {
           },
         });
         synced++;
+
+        if (batchEvents.length >= 50) {
+          await this.batch(batchEvents.splice(0));
+        }
       }
     }
 
-    await DittofeedSdk.flush();
+    if (batchEvents.length > 0) {
+      await this.batch(batchEvents);
+    }
+
     this.logger.log(`Synced ${synced} intelligence profiles to Dittofeed for merchant ${merchantId}`);
     return { synced };
   }
@@ -181,11 +256,25 @@ export class DittofeedService implements OnModuleInit {
     });
 
     let synced = 0;
+    const batchEvents: any[] = [];
+
     for (const order of orders) {
       if (!order.company?.users?.length) continue;
 
       const userId = order.company.users[0].id;
-      DittofeedSdk.track({
+
+      // Check for design files in line items
+      const lineItems = Array.isArray(order.lineItems) ? order.lineItems : [];
+      const hasDesignFiles = lineItems.some((item: any) => {
+        const props = item.properties || [];
+        return props.some((p: any) => {
+          const name = (p.name || '').toLowerCase();
+          return name.includes('preview') || name.includes('upload') || name.includes('file');
+        });
+      });
+
+      batchEvents.push({
+        type: 'track',
         userId,
         event: 'Order Placed',
         properties: {
@@ -196,12 +285,21 @@ export class DittofeedService implements OnModuleInit {
           fulfillmentStatus: order.fulfillmentStatus || '',
           companyId: order.companyId || '',
           companyName: order.company.name || '',
+          hasDesignFiles,
+          lineItemCount: lineItems.length,
         },
       });
       synced++;
+
+      if (batchEvents.length >= 50) {
+        await this.batch(batchEvents.splice(0));
+      }
     }
 
-    await DittofeedSdk.flush();
+    if (batchEvents.length > 0) {
+      await this.batch(batchEvents);
+    }
+
     this.logger.log(`Synced ${synced} order events to Dittofeed`);
     return { synced };
   }
@@ -222,18 +320,21 @@ export class DittofeedService implements OnModuleInit {
     });
 
     let synced = 0;
+    const batchEvents: any[] = [];
+
+    const eventMap: Record<string, string> = {
+      product_view: 'Product Viewed',
+      add_to_cart: 'Added to Cart',
+      page_view: 'Page Viewed',
+      collection_view: 'Collection Viewed',
+    };
+
     for (const event of events) {
       const userId = event.companyUserId;
       if (!userId) continue;
 
-      const eventMap: Record<string, string> = {
-        product_view: 'Product Viewed',
-        add_to_cart: 'Added to Cart',
-        page_view: 'Page Viewed',
-        collection_view: 'Collection Viewed',
-      };
-
-      DittofeedSdk.track({
+      batchEvents.push({
+        type: 'track',
         userId,
         event: eventMap[event.eventType] || event.eventType,
         properties: {
@@ -244,11 +345,87 @@ export class DittofeedService implements OnModuleInit {
         },
       });
       synced++;
+
+      if (batchEvents.length >= 50) {
+        await this.batch(batchEvents.splice(0));
+      }
     }
 
-    await DittofeedSdk.flush();
+    if (batchEvents.length > 0) {
+      await this.batch(batchEvents);
+    }
+
     this.logger.log(`Synced ${synced} visitor events to Dittofeed`);
     return { synced };
+  }
+
+  // ─── SYNC: Push CustomerInsight (CLV/RFM) data ───
+  async syncCustomerInsights(merchantId: string) {
+    if (!this.isReady()) return { synced: 0 };
+
+    const customers = await this.prisma.shopifyCustomer.findMany({
+      where: { merchantId },
+      include: { insight: true },
+    });
+
+    let synced = 0;
+    const batchEvents: any[] = [];
+
+    for (const customer of customers) {
+      if (!customer.email || !customer.insight) continue;
+
+      batchEvents.push({
+        type: 'identify',
+        userId: `shopify_${customer.shopifyCustomerId}`,
+        traits: {
+          email: customer.email,
+          firstName: customer.firstName || '',
+          lastName: customer.lastName || '',
+          clvTier: customer.insight.clvTier || 'unknown',
+          clvScore: Number(customer.insight.clvScore || 0),
+          rfmSegment: customer.insight.rfmSegment || 'unknown',
+          healthScore: customer.insight.healthScore || 0,
+          churnRisk: customer.insight.churnRisk || 'unknown',
+          purchaseFrequency: customer.insight.purchaseFrequency || 'unknown',
+          orderTrend: customer.insight.orderTrend || 'unknown',
+          daysSinceLastOrder: customer.insight.daysSinceLastOrder || 0,
+          isReturning: customer.insight.isReturning,
+          totalSpent: Number(customer.totalSpent || 0),
+          ordersCount: customer.ordersCount,
+          merchantId,
+        },
+      });
+      synced++;
+
+      if (batchEvents.length >= 50) {
+        await this.batch(batchEvents.splice(0));
+      }
+    }
+
+    if (batchEvents.length > 0) {
+      await this.batch(batchEvents);
+    }
+
+    this.logger.log(`Synced ${synced} customer insights to Dittofeed`);
+    return { synced };
+  }
+
+  // ─── DESIGN EVENT: Track design-related activities ───
+  async trackDesignEvent(userId: string, event: string, designData: {
+    orderId?: string | null;
+    orderNumber?: string | null;
+    designProjectId?: string;
+    fileName?: string;
+    fileCount?: number;
+    dimensions?: { width: number; height: number; unit: string };
+    variantTitle?: string;
+    status?: string;
+    format?: string;
+  }) {
+    await this.trackEvent(userId, event, {
+      category: 'design',
+      ...designData,
+    });
   }
 
   // ─── CRON: Auto-sync every hour ───
@@ -266,6 +443,7 @@ export class DittofeedService implements OnModuleInit {
       await this.syncCompanyIntelligence(m.id);
       await this.syncOrders(m.id, 1);
       await this.syncVisitorEvents(m.id, 1);
+      await this.syncCustomerInsights(m.id);
     }
   }
 }
