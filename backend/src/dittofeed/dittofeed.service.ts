@@ -44,8 +44,11 @@ export class DittofeedService implements OnModuleInit {
       await this.client.get('/api/public/health');
       this.initialized = true;
       this.logger.log(`Dittofeed HTTP client initialized → ${host}`);
-    } catch (err) {
-      this.logger.error('Failed to init Dittofeed HTTP client', err);
+    } catch (err: any) {
+      const status = err.response?.status;
+      const data = err.response?.data;
+      this.logger.error(`Failed to init Dittofeed HTTP client [${status}]: ${err.message}. Data: ${JSON.stringify(data)}`);
+
       // Still mark as initialized — we'll retry on each call
       this.client = createClient();
       this.initialized = true;
