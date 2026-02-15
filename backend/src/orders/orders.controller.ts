@@ -1,7 +1,7 @@
-import { Controller, Get, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
-import { OrdersService } from './orders.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BadRequestException, Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OrdersService } from './orders.service';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -15,21 +15,25 @@ export class OrdersController {
     @CurrentUser('role') role: string,
     @Query('companyId') queryCompanyId?: string,
     @Query('status') status?: string,
+    @Query('pickupOnly') pickupOnly?: string,
+    @Query('hasDesignFiles') hasDesignFiles?: string,
   ) {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    
-    // Security: Company users can only see their own company's orders
-    // Admin/merchant can see all or filter by company
+
     let companyId = queryCompanyId;
-    
+
     if (userCompanyId) {
-      // User is a company user - force their companyId filter
       companyId = userCompanyId;
     }
-    
-    return this.ordersService.findAll(merchantId, { companyId, status });
+
+    return this.ordersService.findAll(merchantId, {
+      companyId,
+      status,
+      pickupOnly: pickupOnly === 'true',
+      hasDesignFiles: hasDesignFiles === 'true',
+    });
   }
 
   @Get('stats')
@@ -40,8 +44,34 @@ export class OrdersController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    // If user has companyId, get stats for their company only
     return this.ordersService.getStats(merchantId, companyId);
+  }
+
+  // ===================================================
+  // CUSTOMER JOURNEY — Full lifecycle for a single customer
+  // ===================================================
+  @Get('journey/:shopifyCustomerId')
+  async getCustomerJourney(
+    @CurrentUser('merchantId') merchantId: string,
+    @Param('shopifyCustomerId') shopifyCustomerId: string,
+  ) {
+    if (!merchantId) {
+      throw new BadRequestException('Merchant ID required');
+    }
+    return this.ordersService.getCustomerJourney(merchantId, shopifyCustomerId);
+  }
+
+  // ===================================================
+  // JOURNEY FUNNEL — Aggregate conversion funnel
+  // ===================================================
+  @Get('journey-funnel')
+  async getJourneyFunnel(
+    @CurrentUser('merchantId') merchantId: string,
+  ) {
+    if (!merchantId) {
+      throw new BadRequestException('Merchant ID required');
+    }
+    return this.ordersService.getJourneyFunnel(merchantId);
   }
 
   @Get(':id')
@@ -53,11 +83,6 @@ export class OrdersController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    // Pass companyId to ensure user can only access their company's orders
     return this.ordersService.findOne(id, merchantId, companyId);
   }
 }
-
-
-
-

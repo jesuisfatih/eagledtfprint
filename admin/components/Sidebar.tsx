@@ -28,6 +28,8 @@ const menuGroups: MenuGroup[] = [
       { title: 'Companies', icon: 'ti-building', href: '/companies' },
       { title: 'Users', icon: 'ti-users', href: '/users' },
       { title: 'Customer Intelligence', icon: 'ti-brain', href: '/customers' },
+      { title: 'Company Intelligence', icon: 'ti-chart-bubble', href: '/company-intelligence' },
+      { title: 'Customer Journey', icon: 'ti-route', href: '/customer-journey' },
       { title: 'Orders', icon: 'ti-shopping-cart', href: '/orders' },
       { title: 'Quotes', icon: 'ti-file-invoice', href: '/quotes' },
       { title: 'Invoices', icon: 'ti-receipt', href: '/invoices' },

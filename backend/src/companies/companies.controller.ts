@@ -1,20 +1,21 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  BadRequestException,
+    BadRequestException,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Post,
+    Put,
+    Query,
+    UseGuards,
 } from '@nestjs/common';
-import { CompaniesService } from './companies.service';
-import { CompanyUsersService } from './company-users.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { CreateCompanyDto, UpdateCompanyDto, RejectCompanyDto, InviteUserDto, GetCompaniesQueryDto } from './dto/company.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CompaniesService } from './companies.service';
+import { CompanyIntelligenceService } from './company-intelligence.service';
+import { CompanyUsersService } from './company-users.service';
+import { CreateCompanyDto, GetCompaniesQueryDto, InviteUserDto, RejectCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 
 @Controller('companies')
 @UseGuards(JwtAuthGuard)
@@ -22,6 +23,7 @@ export class CompaniesController {
   constructor(
     private companiesService: CompaniesService,
     private companyUsersService: CompanyUsersService,
+    private companyIntelligence: CompanyIntelligenceService,
   ) {}
 
   @Get()
@@ -41,6 +43,34 @@ export class CompaniesController {
       throw new BadRequestException('Merchant ID required');
     }
     return this.companiesService.getStats(merchantId);
+  }
+
+  // ===================================================
+  // COMPANY INTELLIGENCE ENDPOINTS
+  // ===================================================
+  @Get('intelligence/dashboard')
+  async getIntelligenceDashboard(
+    @CurrentUser('merchantId') merchantId: string,
+  ) {
+    if (!merchantId) throw new BadRequestException('Merchant ID required');
+    return this.companyIntelligence.getDashboard(merchantId);
+  }
+
+  @Get('intelligence/:companyId')
+  async getCompanyIntelligence(
+    @CurrentUser('merchantId') merchantId: string,
+    @Param('companyId') companyId: string,
+  ) {
+    if (!merchantId) throw new BadRequestException('Merchant ID required');
+    return this.companyIntelligence.getCompanyDetail(merchantId, companyId);
+  }
+
+  @Post('intelligence/calculate')
+  async calculateIntelligence(
+    @CurrentUser('merchantId') merchantId: string,
+  ) {
+    if (!merchantId) throw new BadRequestException('Merchant ID required');
+    return this.companyIntelligence.calculateAll(merchantId);
   }
 
   @Get(':id')
@@ -130,9 +160,6 @@ export class CompaniesController {
     return this.companyUsersService.delete(userId);
   }
 
-  /**
-   * YUKSEK-004: Resend invitation endpoint
-   */
   @Post(':id/users/resend-invite')
   async resendInvite(
     @Param('id') companyId: string,
@@ -149,7 +176,3 @@ export class CompaniesController {
     return this.companyUsersService.verifyEmail(userId);
   }
 }
-
-
-
-

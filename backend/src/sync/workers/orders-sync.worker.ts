@@ -78,16 +78,34 @@ export class OrdersSyncWorker {
             }
           }
 
-          // Extract line items
+          // Extract line items with customAttributes (file uploads live here)
           const lineItems = order.lineItems?.edges?.map((e: any) => ({
             title: e.node.title,
             quantity: e.node.quantity,
             sku: e.node.variant?.sku,
             variant_id: e.node.variant?.legacyResourceId,
+            variant_title: e.node.variant?.title,
             price: e.node.originalTotalSet?.shopMoney?.amount,
             discounted_price: e.node.discountedTotalSet?.shopMoney?.amount,
             product_id: e.node.variant?.product?.legacyResourceId,
+            product_title: e.node.variant?.product?.title,
+            product_handle: e.node.variant?.product?.handle,
+            image_url: e.node.image?.url || e.node.variant?.image?.url || null,
+            properties: (e.node.customAttributes || []).map((a: any) => ({
+              name: a.key,
+              value: a.value,
+            })),
           })) || [];
+
+          // Detect pickup orders from shippingLine
+          const shippingLine = order.shippingLine;
+          const isPickup = shippingLine
+            ? (shippingLine.title || '').toLowerCase().includes('pickup') ||
+              (shippingLine.code || '').toLowerCase().includes('pickup')
+            : false;
+
+          // Extract order-level custom attributes
+          const orderAttributes = order.customAttributes || [];
 
           // Extract shipping and billing address
           const shippingAddress = order.shippingAddress ? {

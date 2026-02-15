@@ -330,11 +330,27 @@ export class ShopifyGraphqlService {
                 lastName
               }
               discountCodes
+              customAttributes {
+                key
+                value
+              }
+              shippingLine {
+                title
+                code
+                source
+              }
               lineItems(first: 50) {
                 edges {
                   node {
                     title
                     quantity
+                    customAttributes {
+                      key
+                      value
+                    }
+                    image {
+                      url
+                    }
                     variant {
                       id
                       legacyResourceId

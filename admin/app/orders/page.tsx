@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<string>('all');
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -26,17 +27,22 @@ export default function OrdersPage() {
     refunded: 0,
     fulfilled: 0,
     fulfillmentRate: '0',
+    pickupCount: 0,
   });
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [activeFilter]);
 
   const loadOrders = async () => {
     try {
       setLoading(true);
+      const params = new URLSearchParams();
+      if (activeFilter === 'pickup') params.set('pickupOnly', 'true');
+      if (activeFilter === 'design_files') params.set('hasDesignFiles', 'true');
+
       const [ordersRes, statsRes] = await Promise.all([
-        adminFetch('/api/v1/orders'),
+        adminFetch(`/api/v1/orders?${params.toString()}`),
         adminFetch('/api/v1/orders/stats').catch(() => null),
       ]);
       const orderList = await ordersRes.json();
@@ -53,6 +59,7 @@ export default function OrdersPage() {
           refunded: Number(s.totalRefunded || 0),
           fulfilled: s.fulfilledCount || data.filter((o: any) => o.fulfillmentStatus === 'fulfilled').length,
           fulfillmentRate: s.fulfillmentRate || '0',
+          pickupCount: s.pickupCount || 0,
         });
       } else {
         setStats({
@@ -63,6 +70,7 @@ export default function OrdersPage() {
           refunded: 0,
           fulfilled: data.filter((o: any) => o.fulfillmentStatus === 'fulfilled').length,
           fulfillmentRate: '0',
+          pickupCount: data.filter((o: any) => o.isPickup).length,
         });
       }
     } catch (err) {
@@ -74,8 +82,8 @@ export default function OrdersPage() {
   };
 
   const exportCSV = () => {
-    const csv = 'Order,Company,Total,Payment,Fulfillment,Risk,Shipping,Refunded,Date\n' + orders.map(o =>
-      `${o.orderNumber},${(o as any).company?.name || 'N/A'},${o.totalPrice},${o.paymentStatus},${o.fulfillmentStatus},${(o as any).riskLevel || 'normal'},${(o as any).totalShipping || 0},${(o as any).totalRefunded || 0},${new Date(o.createdAt).toLocaleDateString()}`
+    const csv = 'Order,Company,Total,Payment,Fulfillment,Risk,Pickup,DesignFiles,Shipping,Refunded,Date\n' + orders.map(o =>
+      `${o.orderNumber},${(o as any).company?.name || 'N/A'},${o.totalPrice},${o.paymentStatus},${o.fulfillmentStatus},${(o as any).riskLevel || 'normal'},${(o as any).isPickup ? 'Yes' : 'No'},${(o as any).hasDesignFiles ? 'Yes' : 'No'},${(o as any).totalShipping || 0},${(o as any).totalRefunded || 0},${new Date(o.createdAt).toLocaleDateString()}`
     ).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -93,18 +101,44 @@ export default function OrdersPage() {
     ) : null;
   };
 
+  const filterButtons = [
+    { key: 'all', label: 'All Orders', icon: 'list', count: stats.total },
+    { key: 'pickup', label: 'Pickup', icon: 'map-pin', count: stats.pickupCount },
+    { key: 'design_files', label: 'With Files', icon: 'file-upload', count: orders.filter((o: any) => o.hasDesignFiles).length },
+  ];
+
   const columns: DataTableColumn<OrderWithItems>[] = [
     {
       key: 'orderNumber',
-      label: 'Order ID',
+      label: 'Order',
       sortable: true,
-      render: (order) => (
-        <Link href={`/orders/${order.id}`} style={{ fontWeight: 500, color: 'var(--accent-primary)', textDecoration: 'none' }}>
-          #{order.orderNumber}
-        </Link>
+      render: (order: any) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link href={`/orders/${order.id}`} style={{ fontWeight: 600, color: 'var(--accent-primary)', textDecoration: 'none' }}>
+            #{order.orderNumber}
+          </Link>
+          {order.isPickup && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+              background: 'rgba(255,149,0,0.12)', color: '#ff9500',
+            }}>
+              <i className="ti ti-map-pin" style={{ fontSize: 10 }} />PICKUP
+            </span>
+          )}
+          {order.hasDesignFiles && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+              background: 'rgba(88,86,214,0.12)', color: '#5856d6',
+            }}>
+              <i className="ti ti-file" style={{ fontSize: 10 }} />{order.designFiles?.length}
+            </span>
+          )}
+        </div>
       ),
     },
-    { key: 'company', label: 'Company', sortable: true, render: (order) => order.company?.name || 'N/A' },
+    { key: 'company' as any, label: 'Company', sortable: true, render: (order: any) => order.company?.name || '—' },
     { key: 'createdAt', label: 'Date', sortable: true, render: (order) => new Date(order.createdAt).toLocaleDateString() },
     { key: 'totalPrice', label: 'Total', sortable: true, render: (order) => `$${Number(order.totalPrice || 0).toFixed(2)}` },
     {
@@ -113,7 +147,25 @@ export default function OrdersPage() {
     },
     {
       key: 'fulfillmentStatus', label: 'Fulfillment', sortable: true,
-      render: (order) => <StatusBadge status={order.fulfillmentStatus} colorMap={{ fulfilled: 'success', partial: 'warning', unfulfilled: 'secondary' }} />,
+      render: (order: any) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <StatusBadge status={order.fulfillmentStatus} colorMap={{ fulfilled: 'success', partial: 'warning', unfulfilled: 'secondary' }} />
+          {order.pickupOrder && (
+            <Link href={`/pickup`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+              background: order.pickupOrder.status === 'picked_up' ? 'rgba(52,199,89,0.12)' :
+                         order.pickupOrder.status === 'ready' ? 'rgba(0,122,255,0.12)' : 'rgba(255,149,0,0.12)',
+              color: order.pickupOrder.status === 'picked_up' ? '#34c759' :
+                     order.pickupOrder.status === 'ready' ? '#007aff' : '#ff9500',
+              textDecoration: 'none',
+            }}>
+              {order.pickupOrder.shelfCode && <span>📍{order.pickupOrder.shelfCode}</span>}
+              {order.pickupOrder.status.replace(/_/g, ' ')}
+            </Link>
+          )}
+        </div>
+      ),
     },
     {
       key: 'riskLevel' as any, label: 'Risk', sortable: true,
@@ -126,6 +178,11 @@ export default function OrdersPage() {
       <Link href={`/orders/${order.id}`} className="btn-apple ghost small" style={{ textDecoration: 'none' }}>
         <i className="ti ti-eye" />
       </Link>
+      {(order as any).isPickup && (
+        <Link href="/pickup" className="btn-apple ghost small" style={{ textDecoration: 'none' }} title="View Pickup">
+          <i className="ti ti-map-pin" />
+        </Link>
+      )}
       {order.shopifyOrderId && (
         <a href={`${config.shopifyAdminBaseUrl}/orders/${order.shopifyOrderId}`}
           target="_blank" rel="noopener noreferrer" className="btn-apple ghost small" title="View in Shopify">
@@ -141,12 +198,44 @@ export default function OrdersPage() {
     <div>
       <PageHeader
         title="Orders"
-        subtitle={`${orders.length} total orders`}
+        subtitle={`${orders.length} ${activeFilter !== 'all' ? `${activeFilter} ` : ''}orders`}
         actions={[
           { label: 'Export CSV', icon: 'download', variant: 'success', onClick: exportCSV },
           { label: 'Refresh', icon: 'refresh', variant: 'secondary', onClick: loadOrders },
         ]}
       />
+
+      {/* Filter tabs */}
+      <div style={{
+        display: 'flex', gap: 8, marginBottom: 16, padding: '4px',
+        background: 'var(--bg-secondary)', borderRadius: 12, width: 'fit-content',
+      }}>
+        {filterButtons.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setActiveFilter(f.key)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 500,
+              background: activeFilter === f.key ? 'var(--bg-primary)' : 'transparent',
+              color: activeFilter === f.key ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              boxShadow: activeFilter === f.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <i className={`ti ti-${f.icon}`} style={{ fontSize: 14 }} />
+            {f.label}
+            <span style={{
+              padding: '1px 6px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+              background: activeFilter === f.key ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+              color: activeFilter === f.key ? '#fff' : 'var(--text-tertiary)',
+            }}>
+              {f.count}
+            </span>
+          </button>
+        ))}
+      </div>
 
       <div className="stats-grid">
         <StatsCard title="Total Orders" value={stats.total} icon="shopping-cart" iconColor="primary" loading={loading} />
@@ -154,7 +243,7 @@ export default function OrdersPage() {
         <StatsCard title="Paid" value={stats.paid} icon="check" iconColor="success" loading={loading} />
         <StatsCard title="Pending" value={stats.pending} icon="clock" iconColor="warning" loading={loading} />
         <StatsCard title="Fulfilled" value={`${stats.fulfilled} (${stats.fulfillmentRate}%)`} icon="package" iconColor="info" loading={loading} />
-        <StatsCard title="Refunded" value={fmtRevenue(stats.refunded)} icon="arrow-back" iconColor="danger" loading={loading} />
+        <StatsCard title="Pickup Orders" value={stats.pickupCount} icon="map-pin" iconColor="warning" loading={loading} />
       </div>
 
       <div style={{ marginTop: 20 }}>

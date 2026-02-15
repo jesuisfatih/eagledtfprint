@@ -43,6 +43,11 @@ export default function OrderDetailPage() {
     fulfilled: { bg: 'rgba(52,199,89,0.12)', color: '#34c759' },
     partial: { bg: 'rgba(255,149,0,0.12)', color: '#ff9500' },
     unfulfilled: { bg: 'rgba(142,142,147,0.12)', color: '#8e8e93' },
+    // Pickup statuses
+    ready: { bg: 'rgba(0,122,255,0.12)', color: '#007aff' },
+    picked_up: { bg: 'rgba(52,199,89,0.12)', color: '#34c759' },
+    assigned: { bg: 'rgba(255,149,0,0.12)', color: '#ff9500' },
+    waiting: { bg: 'rgba(142,142,147,0.12)', color: '#8e8e93' },
   };
 
   const getBadge = (status: string, map: Record<string, { bg: string; color: string }>) => {
@@ -72,6 +77,7 @@ export default function OrderDetailPage() {
   const fulfillments = Array.isArray(order.fulfillments) ? order.fulfillments : [];
   const refunds = Array.isArray(order.refunds) ? order.refunds : [];
   const lineItems = Array.isArray(order.lineItems) ? order.lineItems : [];
+  const designFiles = Array.isArray(order.designFiles) ? order.designFiles : [];
   const tags = order.tags ? order.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
 
   return (
@@ -103,6 +109,22 @@ export default function OrderDetailPage() {
                     Risk: {order.riskLevel}
                   </span>
                 )}
+                {order.isPickup && (
+                  <span style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    background: 'rgba(255,149,0,0.12)', color: '#ff9500',
+                  }}>
+                    <i className="ti ti-map-pin" style={{ marginRight: 4 }} />Pickup Order
+                  </span>
+                )}
+                {order.hasDesignFiles && (
+                  <span style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    background: 'rgba(88,86,214,0.12)', color: '#5856d6',
+                  }}>
+                    <i className="ti ti-file-upload" style={{ marginRight: 4 }} />{designFiles.length} Design File{designFiles.length !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 14 }}>
                 Placed on {fmtDate(order.createdAt)}
@@ -110,6 +132,11 @@ export default function OrderDetailPage() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
+              {order.isPickup && (
+                <Link href="/pickup" className="btn-apple secondary" style={{ textDecoration: 'none' }}>
+                  <i className="ti ti-map-pin" style={{ marginRight: 4 }} />Pickup
+                </Link>
+              )}
               {order.shopifyOrderId && (
                 <a href={`${config.shopifyAdminBaseUrl}/orders/${order.shopifyOrderId}`}
                   target="_blank" rel="noopener noreferrer" className="btn-apple secondary" style={{ textDecoration: 'none' }}>
@@ -123,6 +150,161 @@ export default function OrderDetailPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
         <div>
+          {/* Pickup Status Card */}
+          {order.pickupOrder && (
+            <div className="apple-card" style={{ marginBottom: 20, border: '1px solid rgba(255,149,0,0.2)' }}>
+              <div className="apple-card-header" style={{ background: 'rgba(255,149,0,0.04)' }}>
+                <h3 className="apple-card-title" style={{ color: '#ff9500' }}>
+                  <i className="ti ti-map-pin" style={{ marginRight: 8 }} />Pickup Status
+                </h3>
+              </div>
+              <div className="apple-card-body">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>Status</div>
+                    {getBadge(order.pickupOrder.status, statusColors)}
+                  </div>
+                  {order.pickupOrder.shelfCode && (
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>Shelf</div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>
+                        📍 {order.pickupOrder.shelfCode} — {order.pickupOrder.shelfName}
+                      </div>
+                    </div>
+                  )}
+                  {order.pickupOrder.qrCode && (
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>QR Code</div>
+                      <code style={{ fontSize: 12, padding: '3px 8px', background: 'var(--bg-secondary)', borderRadius: 4 }}>
+                        {order.pickupOrder.qrCode}
+                      </code>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 20, marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  {order.pickupOrder.assignedAt && <span>Assigned: {fmtDate(order.pickupOrder.assignedAt)}</span>}
+                  {order.pickupOrder.readyAt && <span>Ready: {fmtDate(order.pickupOrder.readyAt)}</span>}
+                  {order.pickupOrder.pickedUpAt && <span>Picked Up: {fmtDate(order.pickupOrder.pickedUpAt)}</span>}
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <Link href="/pickup" style={{ fontSize: 13, color: 'var(--accent-primary)', textDecoration: 'none' }}>
+                    <i className="ti ti-arrow-right" style={{ marginRight: 4 }} />Go to Pickup Management →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Design Files / Upload Files */}
+          {designFiles.length > 0 && (
+            <div className="apple-card" style={{ marginBottom: 20, border: '1px solid rgba(88,86,214,0.2)' }}>
+              <div className="apple-card-header" style={{ background: 'rgba(88,86,214,0.04)' }}>
+                <h3 className="apple-card-title" style={{ color: '#5856d6' }}>
+                  <i className="ti ti-file-upload" style={{ marginRight: 8 }} />Uploaded Design Files ({designFiles.length})
+                </h3>
+              </div>
+              <div className="apple-card-body" style={{ padding: 0 }}>
+                {designFiles.map((file: any, i: number) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 16, padding: 16,
+                      borderBottom: i < designFiles.length - 1 ? '1px solid var(--border-light)' : 'none',
+                    }}
+                  >
+                    {/* Thumbnail/Preview */}
+                    <div style={{
+                      width: 80, height: 80, borderRadius: 10, overflow: 'hidden',
+                      background: 'var(--bg-secondary)', flexShrink: 0, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {(file.previewUrl || file.thumbnailUrl) ? (
+                        <img
+                          src={file.previewUrl || file.thumbnailUrl}
+                          alt={file.lineItemTitle}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style');
+                          }}
+                        />
+                      ) : (
+                        <i className="ti ti-file-upload" style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>{file.lineItemTitle}</div>
+                      {file.variantTitle && file.variantTitle !== 'Default Title' && (
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{file.variantTitle}</div>
+                      )}
+                      {file.designType && (
+                        <div style={{ fontSize: 12, marginBottom: 4 }}>
+                          <span style={{ padding: '2px 6px', background: 'rgba(88,86,214,0.08)', borderRadius: 4, color: '#5856d6' }}>
+                            {file.designType}
+                          </span>
+                        </div>
+                      )}
+                      {file.fileName && (
+                        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>
+                          <i className="ti ti-file" style={{ marginRight: 4 }} />{file.fileName}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                        Qty: {file.quantity} · {fmt(file.price)}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                      {file.printReadyUrl && (
+                        <a href={file.printReadyUrl} target="_blank" rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            background: 'rgba(52,199,89,0.12)', color: '#34c759', textDecoration: 'none',
+                          }}>
+                          <i className="ti ti-download" style={{ fontSize: 12 }} />Print Ready
+                        </a>
+                      )}
+                      {file.previewUrl && (
+                        <a href={file.previewUrl} target="_blank" rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            background: 'rgba(0,122,255,0.12)', color: '#007aff', textDecoration: 'none',
+                          }}>
+                          <i className="ti ti-eye" style={{ fontSize: 12 }} />Preview
+                        </a>
+                      )}
+                      {file.uploadedFileUrl && (
+                        <a href={file.uploadedFileUrl} target="_blank" rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            background: 'rgba(88,86,214,0.12)', color: '#5856d6', textDecoration: 'none',
+                          }}>
+                          <i className="ti ti-download" style={{ fontSize: 12 }} />Download
+                        </a>
+                      )}
+                      {file.editUrl && (
+                        <a href={file.editUrl} target="_blank" rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            background: 'rgba(255,149,0,0.12)', color: '#ff9500', textDecoration: 'none',
+                          }}>
+                          <i className="ti ti-edit" style={{ fontSize: 12 }} />Edit
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Line Items */}
           <div className="apple-card" style={{ marginBottom: 20 }}>
             <div className="apple-card-header">
@@ -130,22 +312,58 @@ export default function OrderDetailPage() {
             </div>
             <div className="apple-card-body" style={{ padding: 0 }}>
               <table className="apple-table" style={{ marginBottom: 0 }}>
-                <thead><tr><th>Product</th><th style={{ textAlign: 'center' }}>Qty</th><th style={{ textAlign: 'right' }}>Price</th><th style={{ textAlign: 'right' }}>Total</th></tr></thead>
+                <thead><tr><th style={{ width: 50 }}></th><th>Product</th><th style={{ textAlign: 'center' }}>Qty</th><th style={{ textAlign: 'right' }}>Price</th><th style={{ textAlign: 'right' }}>Total</th></tr></thead>
                 <tbody>
-                  {lineItems.map((item: any, i: number) => (
-                    <tr key={i}>
-                      <td>
-                        <div style={{ fontWeight: 500 }}>{item.title || item.name}</div>
-                        {item.sku && <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>SKU: {item.sku}</div>}
-                        {item.variant_title && item.variant_title !== 'Default Title' && (
-                          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.variant_title}</div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                      <td style={{ textAlign: 'right' }}>{fmt(item.price)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((item.price || 0) * (item.quantity || 1))}</td>
-                    </tr>
-                  ))}
+                  {lineItems.map((item: any, i: number) => {
+                    const hasProperties = item.properties && item.properties.length > 0;
+                    const visibleProps = (item.properties || []).filter((p: any) => !(p.name || '').startsWith('_'));
+
+                    return (
+                      <tr key={i}>
+                        <td>
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.title} style={{
+                              width: 40, height: 40, borderRadius: 6, objectFit: 'cover',
+                            }} />
+                          ) : (
+                            <div style={{
+                              width: 40, height: 40, borderRadius: 6, background: 'var(--bg-secondary)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <i className="ti ti-photo" style={{ fontSize: 16, color: 'var(--text-tertiary)' }} />
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{item.title || item.name}</div>
+                          {item.sku && <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>SKU: {item.sku}</div>}
+                          {item.variant_title && item.variant_title !== 'Default Title' && (
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.variant_title}</div>
+                          )}
+                          {/* Show properties */}
+                          {visibleProps.length > 0 && (
+                            <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {visibleProps.map((p: any, pi: number) => (
+                                <span key={pi} style={{
+                                  padding: '2px 6px', borderRadius: 4, fontSize: 10,
+                                  background: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                                }}>
+                                  {p.name}: {p.value?.length > 30 ? (
+                                    <a href={p.value} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)' }}>
+                                      {p.value.startsWith('http') ? '🔗 link' : p.value.substring(0, 30) + '…'}
+                                    </a>
+                                  ) : p.value}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>{item.quantity}</td>
+                        <td style={{ textAlign: 'right' }}>{fmt(item.price)}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((item.price || 0) * (item.quantity || 1))}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -311,7 +529,11 @@ export default function OrderDetailPage() {
             </div>
             <div className="apple-card-body" style={{ fontSize: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {order.company && (
-                <div><strong>Company:</strong> {order.company.name}</div>
+                <div>
+                  <Link href={`/companies/${order.company.id}`} style={{ fontWeight: 600, color: 'var(--accent-primary)', textDecoration: 'none' }}>
+                    <i className="ti ti-building" style={{ marginRight: 4 }} />{order.company.name}
+                  </Link>
+                </div>
               )}
               {order.companyUser && (
                 <div><strong>User:</strong> {order.companyUser.firstName} {order.companyUser.lastName}</div>
