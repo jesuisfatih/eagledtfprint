@@ -236,5 +236,5 @@ export declare class PricingRulesService {
         validFrom: Date | null;
         validUntil: Date | null;
     }>;
-    bulkToggle(merchantId: string, ruleIds: string[], isActive: boolean): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    bulkToggle(merchantId: string, ruleIds: string[], isActive: boolean): Promise<import("@prisma/client/client").Prisma.BatchPayload>;
 }

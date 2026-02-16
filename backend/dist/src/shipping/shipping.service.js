@@ -147,6 +147,7 @@ let ShippingService = ShippingService_1 = class ShippingService {
         const eventUserId = orderForEvent?.email || `order_${request.orderId}`;
         await this.dittofeed.trackEvent(eventUserId, 'shipment_created', {
             orderId: request.orderId,
+            merchantId: request.merchantId,
             trackingNumber: bought.tracking_code,
             carrier: selectedRate.carrier,
             service: selectedRate.service,
@@ -319,18 +320,27 @@ let ShippingService = ShippingService_1 = class ShippingService {
         const internalStatus = statusMap[status] || status;
         if (['delivered', 'out_for_delivery', 'delivery_failed'].includes(internalStatus)) {
             try {
-                const orderForTracking = await this.prisma.orderLocal.findFirst({
-                    where: { trackingNumber: trackingCode },
-                    select: { email: true },
-                });
-                const trackingUserId = orderForTracking?.email || `tracking_${trackingCode}`;
-                await this.dittofeed.trackEvent(trackingUserId, `shipment_${internalStatus}`, {
-                    trackingNumber: trackingCode,
-                    status: internalStatus,
-                    statusDetail,
-                    carrier: event.carrier,
-                    estimatedDelivery: event.est_delivery_date,
-                });
+                const orders = await this.prisma.$queryRaw `
+          SELECT id, email, merchant_id as "merchantId"
+          FROM "orders_local"
+          WHERE "fulfillments"::jsonb @> ('[{"trackingNumber": ' || ${JSON.stringify(trackingCode)} || '}]')::jsonb
+          LIMIT 1
+        `;
+                if (orders.length > 0) {
+                    const orderForTracking = orders[0];
+                    const trackingUserId = orderForTracking?.email || `tracking_${trackingCode}`;
+                    const trackingMerchantId = orderForTracking?.merchantId || '';
+                    if (trackingMerchantId) {
+                        await this.dittofeed.trackEvent(trackingUserId, `shipment_${internalStatus}`, {
+                            trackingNumber: trackingCode,
+                            status: internalStatus,
+                            statusDetail,
+                            carrier: event.carrier,
+                            merchantId: trackingMerchantId,
+                            estimatedDelivery: event.est_delivery_date,
+                        });
+                    }
+                }
             }
             catch (err) {
                 this.logger.warn(`Dittofeed tracking event failed: ${err.message}`);
@@ -435,7 +445,7 @@ let ShippingService = ShippingService_1 = class ShippingService {
         const orders = await this.prisma.orderLocal.findMany({
             where: {
                 merchantId,
-                fulfillmentStatus: { in: ['READY_TO_SHIP', 'READY_FOR_PICKUP'] },
+                fulfillmentStatus: { in: ['READY_TO_SHIP', 'READY_FOR_PICKUP', 'shipped'] },
             },
             select: {
                 id: true,
@@ -444,11 +454,15 @@ let ShippingService = ShippingService_1 = class ShippingService {
                 shippingAddress: true,
                 fulfillmentStatus: true,
                 lineItems: true,
+                fulfillments: true,
             },
             orderBy: { createdAt: 'desc' },
+            take: 50,
         });
         return orders.map(o => {
             const addr = o.shippingAddress || {};
+            const fulfillments = o.fulfillments || [];
+            const latestFulfillment = fulfillments.length > 0 ? fulfillments[fulfillments.length - 1] : null;
             return {
                 id: o.id,
                 shopifyOrderNumber: o.shopifyOrderNumber,
@@ -459,8 +473,9 @@ let ShippingService = ShippingService_1 = class ShippingService {
                 zip: addr.zip || '',
                 totalItems: Array.isArray(o.lineItems) ? o.lineItems.length : 0,
                 status: o.fulfillmentStatus,
-                trackingNumber: null,
-                labelUrl: null,
+                trackingNumber: latestFulfillment?.tracking_number || null,
+                labelUrl: latestFulfillment?.label_url || null,
+                carrier: latestFulfillment?.service || null,
             };
         });
     }

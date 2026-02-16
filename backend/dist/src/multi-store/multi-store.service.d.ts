@@ -61,12 +61,14 @@ export declare class MultiStoreService {
     getProductionLoadBalance(): Promise<ProductionLoadBalance>;
     getStoreConfig(merchantId: string): Promise<StoreConfig | null>;
     listStores(): Promise<{
-        merchantId: string;
-        shopName: string;
+        id: string;
+        name: string;
         domain: string;
-        createdAt: Date;
-        totalOrders: number;
-        totalCustomers: number;
+        shopifyStoreUrl: string;
+        status: "CONNECTED";
+        lastSyncAt: string;
+        orderCount: number;
+        revenue: number;
     }[]>;
     getCrossStoreCustomers(limit?: number): Promise<{
         email: string;
@@ -77,12 +79,24 @@ export declare class MultiStoreService {
     }[]>;
     getMobileFactoryDashboard(merchantId: string): Promise<{
         queue: {
-            queued: any;
-            printing: any;
-            ready: any;
-            completedToday: any;
+            queued: number;
+            printing: number;
+            ready: number;
+            completedToday: number;
         };
-        printers: any;
+        printers: {
+            id: string;
+            name: string;
+            status: import("@prisma/client/client").$Enums.PrinterStatus;
+            inkLevels: {
+                cyan: number | null;
+                magenta: number | null;
+                yellow: number | null;
+                black: number | null;
+                white: number | null;
+            };
+            lowInk: boolean;
+        }[];
         pickup: {
             pending: any;
         };

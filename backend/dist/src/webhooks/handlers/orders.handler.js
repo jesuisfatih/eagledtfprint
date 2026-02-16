@@ -139,6 +139,7 @@ let OrdersHandler = OrdersHandler_1 = class OrdersHandler {
                     await this.dittofeedService.trackOrderPlaced({
                         userId: companyUserId,
                         orderId: orderLocal.id,
+                        merchantId: merchant.id,
                         orderNumber: orderData.order_number?.toString() || '',
                         totalPrice: parseFloat(orderData.total_price || '0'),
                         financialStatus: orderData.financial_status || '',
@@ -294,7 +295,7 @@ let OrdersHandler = OrdersHandler_1 = class OrdersHandler {
                     try {
                         if (orderData.fulfillment_status === 'fulfilled' && fulfillments.length > 0) {
                             const latestFulfillment = fulfillments[fulfillments.length - 1];
-                            await this.dittofeedService.trackOrderFulfilled(user.id, orderData.id?.toString() || '', orderData.order_number?.toString() || '', {
+                            await this.dittofeedService.trackOrderFulfilled(user.id, orderData.id?.toString() || '', orderData.order_number?.toString() || '', merchant.id, {
                                 trackingNumber: latestFulfillment.trackingNumber,
                                 trackingUrl: latestFulfillment.trackingUrl,
                                 carrier: latestFulfillment.trackingCompany,

@@ -1,16 +1,26 @@
 import { OnModuleInit } from '@nestjs/common';
 import { DittofeedService } from '../dittofeed/dittofeed.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProductionService } from '../production/production.service';
 export declare class PenpotService implements OnModuleInit {
     private prisma;
     private dittofeed;
+    private production;
     private readonly logger;
     private client;
     private initialized;
-    constructor(prisma: PrismaService, dittofeed: DittofeedService);
+    constructor(prisma: PrismaService, dittofeed: DittofeedService, production: ProductionService);
     onModuleInit(): Promise<void>;
     private isReady;
     getPublicUrl(): string;
+    getPublicDesignProject(id: string): Promise<{
+        id: any;
+        title: any;
+        status: any;
+        merchantName: any;
+        viewUrl: string | null;
+        fileCount: any;
+    }>;
     createDesignProjectFromOrder(orderId: string, merchantId: string): Promise<{
         success: boolean;
         designProject: {
@@ -43,6 +53,7 @@ export declare class PenpotService implements OnModuleInit {
         companyId?: string;
     }): Promise<any>;
     updateDesignProjectStatus(id: string, merchantId: string, status: string): Promise<any>;
+    syncDesignReady(merchantId: string, penpotFileId: string): Promise<any>;
     exportDesign(designProjectId: string, merchantId: string, format?: 'svg' | 'pdf' | 'png'): Promise<{
         success: boolean;
         data: any;
@@ -54,4 +65,5 @@ export declare class PenpotService implements OnModuleInit {
         data?: undefined;
         contentType?: undefined;
     }>;
+    requestRevision(id: string, merchantId: string, notes: string): Promise<any>;
 }

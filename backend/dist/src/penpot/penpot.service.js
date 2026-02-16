@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -18,15 +21,18 @@ const common_1 = require("@nestjs/common");
 const axios_1 = __importDefault(require("axios"));
 const dittofeed_service_1 = require("../dittofeed/dittofeed.service");
 const prisma_service_1 = require("../prisma/prisma.service");
+const production_service_1 = require("../production/production.service");
 let PenpotService = PenpotService_1 = class PenpotService {
     prisma;
     dittofeed;
+    production;
     logger = new common_1.Logger(PenpotService_1.name);
     client = null;
     initialized = false;
-    constructor(prisma, dittofeed) {
+    constructor(prisma, dittofeed, production) {
         this.prisma = prisma;
         this.dittofeed = dittofeed;
+        this.production = production;
     }
     async onModuleInit() {
         const host = process.env.PENPOT_BACKEND_URL || 'http://multiservice-penpot-backend:6060';
@@ -68,6 +74,24 @@ let PenpotService = PenpotService_1 = class PenpotService {
     }
     getPublicUrl() {
         return process.env.PENPOT_PUBLIC_URL || 'https://design.techifyboost.com';
+    }
+    async getPublicDesignProject(id) {
+        const project = await this.prisma.designProject.findUnique({
+            where: { id },
+            include: {
+                merchant: { select: { name: true } },
+            },
+        });
+        if (!project)
+            throw new common_1.NotFoundException('Project not found');
+        return {
+            id: project.id,
+            title: project.title,
+            status: project.status,
+            merchantName: project.merchant?.name,
+            viewUrl: project.penpotFileId ? `${this.getPublicUrl()}/view/${project.penpotFileId}` : null,
+            fileCount: project.fileCount,
+        };
     }
     async createDesignProjectFromOrder(orderId, merchantId) {
         if (!this.isReady())
@@ -374,18 +398,56 @@ let PenpotService = PenpotService_1 = class PenpotService {
         }));
     }
     async updateDesignProjectStatus(id, merchantId, status) {
+        const existing = await this.prisma.designProject.findUnique({
+            where: { id },
+            select: { id: true, merchantId: true, orderId: true, companyUserId: true }
+        });
+        if (!existing)
+            throw new common_1.NotFoundException('Design project not found');
+        const effectiveMerchantId = merchantId || existing.merchantId;
         const project = await this.prisma.designProject.update({
             where: { id },
             data: { status },
         });
         if (project.companyUserId) {
-            await this.dittofeed.trackDesignEvent(project.companyUserId, 'Design Status Changed', {
+            const eventName = (status === 'DESIGN_READY' || status === 'design_ready')
+                ? 'design_waiting_approval'
+                : (status === 'APPROVED' || status === 'approved')
+                    ? 'design_approved'
+                    : (status === 'REJECTED' || status === 'rejected')
+                        ? 'design_rejected'
+                        : 'Design Status Changed';
+            await this.dittofeed.trackDesignEvent(project.companyUserId, eventName, {
                 designProjectId: project.id,
                 orderId: project.orderId,
                 status,
+                metadata: {
+                    approvalUrl: `https://app.eagledtfsupply.com/design-approval/${project.id}`,
+                }
             });
         }
+        if (status === 'APPROVED' || status === 'approved') {
+            try {
+                await this.production.createJobsFromOrder(effectiveMerchantId, project.orderId);
+                await this.exportDesign(project.id, effectiveMerchantId, 'pdf');
+                this.logger.log(`Automated export triggered for APPROVED project ${project.id}`);
+            }
+            catch (err) {
+                this.logger.error(`Failed to trigger production/export for order ${project.orderId}: ${err.message}`);
+            }
+        }
         return project;
+    }
+    async syncDesignReady(merchantId, penpotFileId) {
+        const project = await this.prisma.designProject.findFirst({
+            where: { penpotFileId, merchantId },
+        });
+        if (!project) {
+            throw new common_1.NotFoundException(`Design project for Penpot File ${penpotFileId} not found`);
+        }
+        const updated = await this.updateDesignProjectStatus(project.id, merchantId, 'DESIGN_READY');
+        this.logger.log(`Design marked as READY via sync: Project ${project.id} (File ${penpotFileId})`);
+        return updated;
     }
     async exportDesign(designProjectId, merchantId, format = 'pdf') {
         if (!this.isReady())
@@ -431,11 +493,29 @@ let PenpotService = PenpotService_1 = class PenpotService {
             return { success: false, error: err.message };
         }
     }
+    async requestRevision(id, merchantId, notes) {
+        const project = await this.updateDesignProjectStatus(id, merchantId, 'REVISION_REQUESTED');
+        if (project.companyUserId) {
+            await this.dittofeed.trackDesignEvent(project.companyUserId, 'Design Revision Requested', {
+                designProjectId: project.id,
+                orderId: project.orderId,
+                status: 'REVISION_REQUESTED',
+                metadata: {
+                    revisionNotes: notes,
+                    uploadUrl: `https://app.eagledtfsupply.com/order/${project.orderId}/upload`,
+                }
+            });
+        }
+        this.logger.log(`Revision requested for project ${project.id}: ${notes}`);
+        return project;
+    }
 };
 exports.PenpotService = PenpotService;
 exports.PenpotService = PenpotService = PenpotService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => production_service_1.ProductionService))),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        dittofeed_service_1.DittofeedService])
+        dittofeed_service_1.DittofeedService,
+        production_service_1.ProductionService])
 ], PenpotService);
 //# sourceMappingURL=penpot.service.js.map

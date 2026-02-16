@@ -13,12 +13,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerIntelligenceService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const dittofeed_service_1 = require("../dittofeed/dittofeed.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 let CustomerIntelligenceService = CustomerIntelligenceService_1 = class CustomerIntelligenceService {
     prisma;
+    dittofeed;
     logger = new common_1.Logger(CustomerIntelligenceService_1.name);
-    constructor(prisma) {
+    constructor(prisma, dittofeed) {
         this.prisma = prisma;
+        this.dittofeed = dittofeed;
     }
     async calculateInsights(merchantId) {
         this.logger.log(`Calculating customer insights for merchant: ${merchantId}`);
@@ -804,10 +807,40 @@ let CustomerIntelligenceService = CustomerIntelligenceService_1 = class Customer
             orderBy: { totalSpent: 'desc' },
         });
     }
+    async syncInsightsToDittofeed(merchantId) {
+        const customers = await this.prisma.shopifyCustomer.findMany({
+            where: { merchantId },
+            include: { insight: true },
+        });
+        let synced = 0;
+        for (const customer of customers) {
+            if (!customer.insight || !customer.email)
+                continue;
+            try {
+                await this.dittofeed.identifyUser(customer.id, {
+                    email: customer.email,
+                    firstName: customer.firstName || undefined,
+                    lastName: customer.lastName || undefined,
+                    predicted_clv: Number(customer.insight.projectedClv || 0),
+                    churn_risk_level: customer.insight.churnRisk || undefined,
+                    rfm_segment: customer.insight.rfmSegment || undefined,
+                    health_score: customer.insight.healthScore || undefined,
+                    days_since_last_order: customer.insight.daysSinceLastOrder || undefined,
+                    avg_order_interval_days: customer.insight.avgDaysBetweenOrders || undefined,
+                });
+                synced++;
+            }
+            catch (err) {
+                this.logger.error(`Dittofeed sync error for ${customer.id}: ${err.message}`);
+            }
+        }
+        return { synced };
+    }
 };
 exports.CustomerIntelligenceService = CustomerIntelligenceService;
 exports.CustomerIntelligenceService = CustomerIntelligenceService = CustomerIntelligenceService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        dittofeed_service_1.DittofeedService])
 ], CustomerIntelligenceService);
 //# sourceMappingURL=customer-intelligence.service.js.map

@@ -10,6 +10,7 @@ export default function OrderDetailPage() {
   const params = useParams();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isPreparing, setIsPreparing] = useState(false);
 
   useEffect(() => { loadOrder(); }, []);
 
@@ -21,6 +22,26 @@ export default function OrderDetailPage() {
       setOrder(data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  };
+
+  const handlePrepareForPrinting = async () => {
+    try {
+      setIsPreparing(true);
+      const res = await adminFetch(`/api/v1/penpot/create-from-order/${params.id}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        await loadOrder();
+      } else {
+        const error = await res.json();
+        alert(`Failed to prepare design: ${error.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to connect to design service');
+    } finally {
+      setIsPreparing(false);
+    }
   };
 
   const fmt = (n: any) => `$${Number(n || 0).toFixed(2)}`;
@@ -142,6 +163,19 @@ export default function OrderDetailPage() {
                   target="_blank" rel="noopener noreferrer" className="btn-apple secondary" style={{ textDecoration: 'none' }}>
                   <i className="ti ti-external-link" style={{ marginRight: 4 }} />Shopify
                 </a>
+              )}
+              {order.hasDesignFiles && (!order.linkedDesigns || order.linkedDesigns.length === 0) && (
+                <button
+                  className="btn-apple primary"
+                  onClick={handlePrepareForPrinting}
+                  disabled={isPreparing}
+                >
+                  {isPreparing ? (
+                    <span className="spinner-apple small" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                  ) : (
+                    <><i className="ti ti-palette" style={{ marginRight: 4 }} />Prepare for Printing</>
+                  )}
+                </button>
               )}
             </div>
           </div>
@@ -270,6 +304,26 @@ export default function OrderDetailPage() {
                       {file.variantTitle && file.variantTitle !== 'Default Title' && (
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{file.variantTitle}</div>
                       )}
+                      {/* DPI & Dimensions Visualization */}
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                         <span style={{
+                           padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                           background: (file.dpi || 300) < 300 ? 'rgba(255,59,48,0.1)' : 'rgba(52,199,89,0.1)',
+                           color: (file.dpi || 300) < 300 ? '#ff3b30' : '#34c759',
+                           border: `1px solid ${(file.dpi || 300) < 300 ? 'rgba(255,59,48,0.2)' : 'rgba(52,199,89,0.2)'}`
+                         }}>
+                           {file.dpi || 300} DPI {(file.dpi || 300) < 300 ? '⚠️ LOW RES' : '✓ OK'}
+                         </span>
+                         {(file.rawWidth && file.rawHeight) && (
+                           <span style={{
+                             padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                             background: 'rgba(0,122,255,0.05)', color: '#007aff',
+                             border: '1px solid rgba(0,122,255,0.1)'
+                           }}>
+                             📏 {file.rawWidth}" × {file.rawHeight}"
+                           </span>
+                         )}
+                      </div>
                       {file.designType && (
                         <div style={{ fontSize: 12, marginBottom: 4 }}>
                           <span style={{ padding: '2px 6px', background: 'rgba(88,86,214,0.08)', borderRadius: 4, color: '#5856d6' }}>

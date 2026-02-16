@@ -16,11 +16,14 @@ exports.ProductionController = void 0;
 const common_1 = require("@nestjs/common");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const factory_floor_service_1 = require("./factory-floor.service");
 const production_service_1 = require("./production.service");
 let ProductionController = class ProductionController {
     productionService;
-    constructor(productionService) {
+    factoryFloorService;
+    constructor(productionService, factoryFloorService) {
         this.productionService = productionService;
+        this.factoryFloorService = factoryFloorService;
     }
     async getBoard(merchantId) {
         return this.productionService.getKanbanBoard(merchantId);
@@ -69,6 +72,33 @@ let ProductionController = class ProductionController {
     }
     async getGangBatches(merchantId, status) {
         return this.productionService.getGangSheetBatches(merchantId, status);
+    }
+    async getRecommendations(merchantId) {
+        return this.productionService.getBatchRecommendations(merchantId);
+    }
+    async getLabelData(id) {
+        return this.productionService.getLabelData(id);
+    }
+    async logEnv(merchantId, data) {
+        return this.productionService.logEnvironment(merchantId, data);
+    }
+    async recordMaintenance(data) {
+        return this.productionService.recordMaintenance(data);
+    }
+    async getMaintenance(id) {
+        return this.productionService.getMaintenanceHistory(id);
+    }
+    async getRollNesting(merchantId) {
+        return this.productionService.getRollNestingProposal(merchantId);
+    }
+    async getPackaging(orderId) {
+        return this.productionService.getPackagingStrategy(orderId);
+    }
+    async getFactoryDashboard(merchantId) {
+        return this.factoryFloorService.getFactoryFloorDashboard(merchantId);
+    }
+    async getPipelineDetail(merchantId, orderId) {
+        return this.factoryFloorService.getOrderPipelineStatus(orderId, merchantId);
     }
 };
 exports.ProductionController = ProductionController;
@@ -191,9 +221,75 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ProductionController.prototype, "getGangBatches", null);
+__decorate([
+    (0, common_1.Get)('batch-recommendations'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getRecommendations", null);
+__decorate([
+    (0, common_1.Get)('jobs/:id/label'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getLabelData", null);
+__decorate([
+    (0, common_1.Post)('environment-logs'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "logEnv", null);
+__decorate([
+    (0, common_1.Post)('maintenance-logs'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "recordMaintenance", null);
+__decorate([
+    (0, common_1.Get)('printers/:id/maintenance'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getMaintenance", null);
+__decorate([
+    (0, common_1.Get)('roll-nesting-proposal'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getRollNesting", null);
+__decorate([
+    (0, common_1.Get)('jobs/packaging-strategy/:orderId'),
+    __param(0, (0, common_1.Param)('orderId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getPackaging", null);
+__decorate([
+    (0, common_1.Get)('factory-floor/dashboard'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getFactoryDashboard", null);
+__decorate([
+    (0, common_1.Get)('factory-floor/pipeline/:orderId'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Param)('orderId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ProductionController.prototype, "getPipelineDetail", null);
 exports.ProductionController = ProductionController = __decorate([
     (0, common_1.Controller)('production'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    __metadata("design:paramtypes", [production_service_1.ProductionService])
+    __metadata("design:paramtypes", [production_service_1.ProductionService,
+        factory_floor_service_1.FactoryFloorService])
 ], ProductionController);
 //# sourceMappingURL=production.controller.js.map

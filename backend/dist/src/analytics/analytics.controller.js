@@ -48,6 +48,14 @@ let AnalyticsController = class AnalyticsController {
         const parsedLimit = limit ? parseInt(limit, 10) : 10;
         return this.analyticsService.getTopCompanies(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 10);
     }
+    async getProfitability(orderId) {
+        if (!orderId)
+            throw new common_1.BadRequestException('Order ID required');
+        return this.analyticsService.getOrderProfitability(orderId);
+    }
+    async getOperatorLeaderboard(merchantId) {
+        return this.analyticsService.getOperatorLeaderboard(merchantId);
+    }
 };
 exports.AnalyticsController = AnalyticsController;
 __decorate([
@@ -80,6 +88,20 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getTopCompanies", null);
+__decorate([
+    (0, common_1.Get)('profitability'),
+    __param(0, (0, common_1.Query)('orderId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getProfitability", null);
+__decorate([
+    (0, common_1.Get)('operator-leaderboard'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getOperatorLeaderboard", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

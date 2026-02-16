@@ -256,7 +256,7 @@ export class MultiStoreService {
             where: { merchantId: merchant.id, status: 'PRINTING' },
           }),
           this.prisma.printer.findMany({
-            where: { merchantId: merchant.id, status: 'ACTIVE' },
+            where: { merchantId: merchant.id, status: 'IDLE' },
             select: { id: true, totalPrintsAll: true },
           }),
         ]);

@@ -7,7 +7,10 @@ import { ProactiveOfferService } from '../customers/proactive-offer.service';
 import { ShopifyCustomersController } from './shopify-customers.controller';
 import { ShopifyCustomersService } from './shopify-customers.service';
 
+import { DittofeedModule } from '../dittofeed/dittofeed.module';
+
 @Module({
+  imports: [DittofeedModule],
   controllers: [ShopifyCustomersController, ProactiveOfferController, CustomerListsController],
   providers: [ShopifyCustomersService, CustomerIntelligenceService, ProactiveOfferService, CustomerListsService],
   exports: [ShopifyCustomersService, CustomerIntelligenceService, ProactiveOfferService, CustomerListsService],

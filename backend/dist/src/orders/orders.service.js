@@ -35,7 +35,7 @@ let OrdersService = class OrdersService {
             for (const prop of properties) {
                 const name = (prop.name || '').toLowerCase();
                 const value = prop.value || '';
-                if (name.startsWith('_') && !name.includes('preview') && !name.includes('upload') && !name.includes('thumbnail'))
+                if (name.startsWith('_') && !name.includes('preview') && !name.includes('upload') && !name.includes('thumbnail') && !name.includes('dpi') && !name.includes('width') && !name.includes('height'))
                     continue;
                 if (name.includes('preview') || name === '_preview')
                     fileInfo.previewUrl = value;
@@ -55,13 +55,28 @@ let OrdersService = class OrdersService {
                     fileInfo.editUrl = value;
                 if (name.includes('admin') && name.includes('edit'))
                     fileInfo.adminEditUrl = value;
+                if (name === 'dpi' || name === '_dpi')
+                    fileInfo.dpi = parseInt(value) || 300;
+                if (name.includes('width') && !name.includes('screen'))
+                    fileInfo.rawWidth = value;
+                if (name.includes('height') && !name.includes('screen'))
+                    fileInfo.rawHeight = value;
                 if (!fileInfo.uploadedFileUrl && this.isUrl(value) && (name.includes('image') || name.includes('file') || name.includes('artwork') ||
                     name.includes('design') || name.includes('photo') || name.includes('logo') ||
                     name.includes('graphic') || name.includes('attachment'))) {
                     fileInfo.uploadedFileUrl = value;
                 }
             }
-            fileInfo.allProperties = properties.filter((p) => !(p.name || '').startsWith('_') || (p.name || '').includes('preview') || (p.name || '').includes('upload'));
+            if (!fileInfo.dpi)
+                fileInfo.dpi = 300;
+            if (!fileInfo.rawWidth && item.variant_title) {
+                const sizeMatch = item.variant_title.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/);
+                if (sizeMatch) {
+                    fileInfo.rawWidth = sizeMatch[1];
+                    fileInfo.rawHeight = sizeMatch[2];
+                }
+            }
+            fileInfo.allProperties = properties.filter((p) => !(p.name || '').startsWith('_') || (p.name || '').includes('preview') || (p.name || '').includes('upload') || (p.name || '').includes('dpi') || (p.name || '').includes('width') || (p.name || '').includes('height'));
             if (fileInfo.previewUrl || fileInfo.printReadyUrl || fileInfo.uploadedFileUrl ||
                 fileInfo.editUrl || fileInfo.thumbnailUrl) {
                 files.push(fileInfo);
@@ -94,7 +109,7 @@ let OrdersService = class OrdersService {
         }
         return false;
     }
-    mapOrder(order, pickupOrder) {
+    mapOrder(order, pickupOrder, activityLogs = []) {
         const lineItems = Array.isArray(order.lineItems) ? order.lineItems : [];
         const designFiles = this.extractDesignFiles(lineItems);
         const isPickup = this.detectPickup(order);
@@ -145,6 +160,28 @@ let OrdersService = class OrdersService {
             companyUser: order.companyUser,
             createdAt: order.createdAt,
             updatedAt: order.updatedAt,
+            productionJobs: (order.productionJobs || []).map((job) => ({
+                id: job.id,
+                status: job.status,
+                printerId: job.printerId,
+                printerName: job.printer?.name,
+                startedAt: job.startedAt,
+                completedAt: job.completedAt,
+                estimatedCompletionAt: job.estimatedCompletionAt,
+            })),
+            linkedDesigns: (order.designProjects || []).map((p) => ({
+                id: p.id,
+                penpotProjectId: p.penpotProjectId,
+                title: p.title,
+                status: p.status,
+                previewUrl: p.thumbnailUrl,
+            })),
+            activityLogs: activityLogs.map((log) => ({
+                id: log.id,
+                eventType: log.eventType.replace('dittofeed:', ''),
+                createdAt: log.createdAt,
+                payload: log.payload,
+            })),
         };
     }
     mapFinancialToStatus(financialStatus) {
@@ -234,12 +271,30 @@ let OrdersService = class OrdersService {
                         shelf: true,
                     },
                 },
+                productionJobs: {
+                    include: { printer: { select: { name: true } } },
+                    orderBy: { createdAt: 'desc' },
+                },
+                designProjects: true,
             },
         });
         if (!order)
             return null;
+        const activityLogs = await this.prisma.activityLog.findMany({
+            where: {
+                merchantId,
+                eventType: { startsWith: 'dittofeed:' },
+                createdAt: { gte: order.createdAt },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        const orderLogs = activityLogs.filter(log => {
+            const p = log.payload;
+            return p?.orderId === id || p?.properties?.orderId === id;
+        });
         const pickupOrder = order.pickupOrders?.[0] || null;
-        return this.mapOrder(order, pickupOrder);
+        return this.mapOrder(order, pickupOrder, orderLogs);
     }
     async getStats(merchantId, companyId) {
         const where = { merchantId };

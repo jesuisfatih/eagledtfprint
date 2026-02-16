@@ -160,6 +160,12 @@ let PrismaService = PrismaService_1 = class PrismaService {
     get gangSheetBatch() {
         return this.prisma.gangSheetBatch;
     }
+    get environmentalLog() {
+        return this.prisma.environmentalLog;
+    }
+    get printerMaintenanceLog() {
+        return this.prisma.printerMaintenanceLog;
+    }
     async onModuleInit() {
         try {
             await this.$connect();

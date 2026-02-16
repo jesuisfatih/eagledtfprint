@@ -47,4 +47,15 @@ export class AnalyticsController {
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
     return this.analyticsService.getTopCompanies(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 10);
   }
+
+  @Get('profitability')
+  async getProfitability(@Query('orderId') orderId: string) {
+    if (!orderId) throw new BadRequestException('Order ID required');
+    return this.analyticsService.getOrderProfitability(orderId);
+  }
+
+  @Get('operator-leaderboard')
+  async getOperatorLeaderboard(@CurrentUser('merchantId') merchantId: string) {
+    return this.analyticsService.getOperatorLeaderboard(merchantId);
+  }
 }

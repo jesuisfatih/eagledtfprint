@@ -1,12 +1,16 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import { DittofeedService } from '../dittofeed/dittofeed.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PickupService {
   private readonly logger = new Logger(PickupService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private dittofeed: DittofeedService,
+  ) {}
 
   // =========================================
   // SHELVES CRUD
@@ -201,11 +205,21 @@ export class PickupService {
     const shelf = await this.prisma.pickupShelf.findFirst({ where: { id: shelfId, merchantId } });
     if (!shelf) throw new NotFoundException('Shelf not found');
 
-    return this.prisma.pickupOrder.update({
+    const updated = await this.prisma.pickupOrder.update({
       where: { id },
       data: { shelfId, assignedAt: new Date() },
       include: { shelf: true, order: true },
     });
+
+    if (updated.companyUserId) {
+      await this.dittofeed.trackEvent(updated.companyUserId, 'pickup_shelf_assigned', {
+        pickupOrderId: updated.id,
+        orderNumber: updated.orderNumber,
+        shelfCode: shelf.code,
+      });
+    }
+
+    return updated;
   }
 
   async updateStatus(id: string, merchantId: string, status: string) {
@@ -222,11 +236,24 @@ export class PickupService {
     if (status === 'notified') data.notifiedAt = new Date();
     if (status === 'picked_up') data.pickedUpAt = new Date();
 
-    return this.prisma.pickupOrder.update({
+    const updated = await this.prisma.pickupOrder.update({
       where: { id },
       data,
       include: { shelf: true, order: true },
     });
+
+    if (updated.companyUserId) {
+      const eventName = `pickup_${status}`;
+      await this.dittofeed.trackEvent(updated.companyUserId, eventName, {
+        pickupOrderId: updated.id,
+        orderNumber: updated.orderNumber,
+        status: updated.status,
+        shelfCode: updated.shelf?.code || null,
+        qrCode: updated.qrCode,
+      });
+    }
+
+    return updated;
   }
 
   // =========================================

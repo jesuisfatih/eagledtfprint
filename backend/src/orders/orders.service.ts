@@ -29,7 +29,7 @@ export class OrdersService {
         const value = prop.value || '';
 
         // Skip internal/hidden properties
-        if (name.startsWith('_') && !name.includes('preview') && !name.includes('upload') && !name.includes('thumbnail')) continue;
+        if (name.startsWith('_') && !name.includes('preview') && !name.includes('upload') && !name.includes('thumbnail') && !name.includes('dpi') && !name.includes('width') && !name.includes('height')) continue;
 
         // File URL detection — match common upload app patterns
         if (name.includes('preview') || name === '_preview') fileInfo.previewUrl = value;
@@ -42,6 +42,11 @@ export class OrdersService {
         if (name.includes('edit') && !name.includes('admin')) fileInfo.editUrl = value;
         if (name.includes('admin') && name.includes('edit')) fileInfo.adminEditUrl = value;
 
+        // DPI and Dimensions
+        if (name === 'dpi' || name === '_dpi') fileInfo.dpi = parseInt(value) || 300;
+        if (name.includes('width') && !name.includes('screen')) fileInfo.rawWidth = value;
+        if (name.includes('height') && !name.includes('screen')) fileInfo.rawHeight = value;
+
         // Generic URL detection for any property with a URL value
         if (!fileInfo.uploadedFileUrl && this.isUrl(value) && (
           name.includes('image') || name.includes('file') || name.includes('artwork') ||
@@ -52,9 +57,21 @@ export class OrdersService {
         }
       }
 
+      // Fallback DPI
+      if (!fileInfo.dpi) fileInfo.dpi = 300;
+
+      // Extract dimensions from variant title if not in properties
+      if (!fileInfo.rawWidth && item.variant_title) {
+        const sizeMatch = item.variant_title.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/);
+        if (sizeMatch) {
+          fileInfo.rawWidth = sizeMatch[1];
+          fileInfo.rawHeight = sizeMatch[2];
+        }
+      }
+
       // Also capture all raw properties for transparency
       fileInfo.allProperties = properties.filter(
-        (p: any) => !(p.name || '').startsWith('_') || (p.name || '').includes('preview') || (p.name || '').includes('upload')
+        (p: any) => !(p.name || '').startsWith('_') || (p.name || '').includes('preview') || (p.name || '').includes('upload') || (p.name || '').includes('dpi') || (p.name || '').includes('width') || (p.name || '').includes('height')
       );
 
       // Only include items that have actual file references

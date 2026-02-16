@@ -11,12 +11,16 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { FactoryFloorService } from './factory-floor.service';
 import { ProductionService } from './production.service';
 
 @Controller('production')
 @UseGuards(JwtAuthGuard)
 export class ProductionController {
-  constructor(private readonly productionService: ProductionService) {}
+  constructor(
+    private readonly productionService: ProductionService,
+    private readonly factoryFloorService: FactoryFloorService,
+  ) {}
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // KANBAN BOARD
@@ -190,5 +194,69 @@ export class ProductionController {
     @Query('status') status?: string,
   ) {
     return this.productionService.getGangSheetBatches(merchantId, status);
+  }
+
+  /** Akıllı batch önerileri */
+  @Get('batch-recommendations')
+  async getRecommendations(@CurrentUser('merchantId') merchantId: string) {
+    return this.productionService.getBatchRecommendations(merchantId);
+  }
+
+  /** Etiket verisi */
+  @Get('jobs/:id/label')
+  async getLabelData(@Param('id') id: string) {
+    return this.productionService.getLabelData(id);
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // DTF SPECIALIZED (Maintenance & Environment)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  @Post('environment-logs')
+  async logEnv(
+    @CurrentUser('merchantId') merchantId: string,
+    @Body() data: { temperature: number; humidity: number; location?: string },
+  ) {
+    return this.productionService.logEnvironment(merchantId, data);
+  }
+
+  @Post('maintenance-logs')
+  async recordMaintenance(
+    @Body() data: { printerId: string; operatorName: string; type: string; notes?: string },
+  ) {
+    return this.productionService.recordMaintenance(data);
+  }
+
+  @Get('printers/:id/maintenance')
+  async getMaintenance(@Param('id') id: string) {
+    return this.productionService.getMaintenanceHistory(id);
+  }
+
+  @Get('roll-nesting-proposal')
+  async getRollNesting(@CurrentUser('merchantId') merchantId: string) {
+    return this.productionService.getRollNestingProposal(merchantId);
+  }
+
+  @Get('jobs/packaging-strategy/:orderId')
+  async getPackaging(@Param('orderId') orderId: string) {
+    return this.productionService.getPackagingStrategy(orderId);
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // FACTORY FLOOR PROXY (For UI Compatibility)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  @Get('factory-floor/dashboard')
+  async getFactoryDashboard(@CurrentUser('merchantId') merchantId: string) {
+    // FactoryFloorService is and should be used here for the full pipeline view
+    return this.factoryFloorService.getFactoryFloorDashboard(merchantId);
+  }
+
+  @Get('factory-floor/pipeline/:orderId')
+  async getPipelineDetail(
+    @CurrentUser('merchantId') merchantId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.factoryFloorService.getOrderPipelineStatus(orderId, merchantId);
   }
 }

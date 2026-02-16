@@ -542,6 +542,128 @@ export class ProductionService {
     });
   }
 
+  /**
+   * Akıllı Batch Önerileri
+   * Bekleyen işleri ürün tipi ve önceliğe göre gruplayarak önerir.
+   */
+  async getBatchRecommendations(merchantId: string) {
+    const pendingJobs = await this.prisma.productionJob.findMany({
+      where: {
+        merchantId,
+        status: 'QUEUED',
+        gangSheetBatchId: null,
+      },
+      include: {
+        order: { select: { shopifyOrderNumber: true, company: { select: { name: true } } } },
+      },
+      orderBy: [
+        { priority: 'desc' },
+        { queuedAt: 'asc' },
+      ],
+    });
+
+    // Gruplandır: Product Type
+    const groups: Record<string, any[]> = {};
+    for (const job of pendingJobs) {
+      if (!groups[job.productType]) groups[job.productType] = [];
+      groups[job.productType].push(job);
+    }
+
+    const recommendations = Object.entries(groups).map(([type, jobs]) => {
+      // Her gruptan en fazla 10 işi bir batch olarak öner
+      const batches: any[] = [];
+      for (let i = 0; i < jobs.length; i += 10) {
+        const batchJobs = jobs.slice(i, i + 10);
+        const totalWidth = batchJobs.reduce((sum, j) => sum + j.widthInch, 0);
+        const avgHeight = batchJobs.reduce((sum, j) => sum + j.heightInch, 0) / batchJobs.length;
+        const hasRush = batchJobs.some(j => ['RUSH', 'SAME_DAY'].includes(j.priority as string));
+
+        batches.push({
+          productType: type,
+          jobCount: batchJobs.length,
+          jobIds: batchJobs.map(j => j.id),
+          totalWidth,
+          estimatedSheetHeight: Math.ceil(avgHeight * (batchJobs.length / 2)), // Kabaca nesting hesabı
+          hasRush,
+          priority: hasRush ? 'HIGH' : 'NORMAL',
+          jobs: batchJobs.map(j => ({
+            id: j.id,
+            orderNumber: j.order?.shopifyOrderNumber,
+            company: (j.order as any)?.company?.name,
+            dimensions: `${j.widthInch}x${j.heightInch}`,
+          })),
+        });
+      }
+      return batches;
+    }).flat();
+
+    return recommendations;
+  }
+
+  /**
+   * Label Data Engine
+   * QR etiket basımı için gerekli metadata'yı döner.
+   */
+  async getLabelData(jobId: string) {
+    const job = await this.prisma.productionJob.findUnique({
+      where: { id: jobId },
+      include: {
+        order: {
+          select: {
+            shopifyOrderNumber: true,
+            email: true,
+            shippingAddress: true,
+          },
+        },
+        printer: { select: { name: true } },
+      },
+    });
+
+    if (!job) throw new NotFoundException('Job not found');
+
+    return {
+      labelId: `LBL-${job.id.split('-')[0].toUpperCase()}`,
+      orderNumber: (job as any).order?.shopifyOrderNumber,
+      customer: (job as any).order?.email,
+      productType: job.productType,
+      dimensions: `${job.widthInch}"x${job.heightInch}"`,
+      printer: job.printer?.name || 'N/A',
+      qrCodeContent: `https://app.eagledtfsupply.com/factory-floor/job/${job.id}`,
+      packagingDate: new Date().toISOString(),
+      priority: job.priority,
+    };
+  }
+
+  /**
+   * Internal SLA Monitoring (Phase 3)
+   * Her saat başı çalışır, 24 saatten uzun süredir bekleyen işleri uyarır.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkProductionSLAs() {
+    this.logger.log('Checking Production SLAs...');
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const delayedJobs = await this.prisma.productionJob.findMany({
+      where: {
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'READY'] },
+        updatedAt: { lt: twentyFourHoursAgo },
+      },
+      include: { order: true },
+    });
+
+    for (const job of delayedJobs) {
+      this.logger.warn(`SLA EXCEEDED: Job ${job.id} (Order ${job.order?.shopifyOrderNumber}) has been in ${job.status} for > 24h.`);
+
+      // Admin/Dükkan sahibine Dittofeed üzerinden uyarı gönder
+      await this.dittofeedService.trackEvent('admin@eagledtfsupply.com', 'internal_sla_exceeded', {
+        jobId: job.id,
+        orderNumber: job.order?.shopifyOrderNumber,
+        status: job.status,
+        lastUpdated: job.updatedAt,
+      });
+    }
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PRODUCTION ANALYTICS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -684,7 +806,10 @@ export class ProductionService {
 
   /** QC sonucu kaydet */
   async recordQcResult(jobId: string, result: 'pass' | 'fail' | 'conditional', notes?: string) {
-    const job = await this.prisma.productionJob.findUnique({ where: { id: jobId } });
+    const job = await this.prisma.productionJob.findUnique({
+      where: { id: jobId },
+      include: { order: { select: { shopifyOrderNumber: true } } },
+    });
     if (!job) throw new NotFoundException(`Job ${jobId} not found`);
 
     if (job.status !== 'QC_CHECK') {
@@ -701,15 +826,26 @@ export class ProductionService {
       updateData.status = 'PACKAGING';
       updateData.packagingStartAt = new Date();
     } else {
-      // fail → back to CUTTING for reprint
-      updateData.status = 'CUTTING';
-      updateData.qcStartAt = null; // reset
+      // fail → back to QUEUED for automatic reprint with RUSH priority
+      updateData.status = 'QUEUED';
+      updateData.priority = 'RUSH';
+      updateData.qcStartAt = null; // reset timing
+      updateData.notes = `[QC FAILED] ${notes || 'No notes'}`;
+
+      this.logger.warn(
+        `Job ${jobId} (Order ${job.order?.shopifyOrderNumber}) failed QC. Re-queued with RUSH priority.`,
+      );
     }
 
-    return this.prisma.productionJob.update({
+    const updated = await this.prisma.productionJob.update({
       where: { id: jobId },
       data: updateData,
     });
+
+    // Notify Gateway for real-time board updates
+    // this.productionGateway.server.emit('jobUpdated', updated);
+
+    return updated;
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -729,6 +865,28 @@ export class ProductionService {
     } catch (err: any) {
       this.logger.error(`Failed to reset daily stats: ${err.message}`);
     }
+  }
+
+  /**
+   * Consumption Calculator
+   * Tahmini mürekkep ve film sarfiyatını hesaplar.
+   */
+  async calculateConsumption(jobId: string) {
+    const job = await this.prisma.productionJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job || !job.areaSquareInch) return null;
+
+    // Basit Heuristic:
+    // 1 m2 (1550 sqin) için ~15ml Ink, ~1m Film
+    const areaSqMtr = job.areaSquareInch / 1550;
+
+    return {
+      estimatedInkMl: Math.round(areaSqMtr * 15 * 100) / 100, // Toplam mürekkep
+      estimatedFilmSqFt: Math.round((job.areaSquareInch / 144) * 1.1 * 100) / 100, // +%10 fire payı
+      estimatedPowderGr: Math.round(areaSqMtr * 10 * 100) / 100,
+    };
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -817,5 +975,118 @@ export class ProductionService {
       SHIPPED:   'order_shipped', // Not 'shipment_created' — that fires from ShippingService
     };
     return map[status] || null;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // DTF PRINT CENTER MAINTENANCE & ENVIRONMENT
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /** Nem ve Sıcaklık Kaydı (DTF için kritik) */
+  async logEnvironment(merchantId: string, data: { temperature: number; humidity: number; location?: string }) {
+    const log = await this.prisma.environmentalLog.create({
+      data: {
+        merchantId,
+        temperature: data.temperature,
+        humidity: data.humidity,
+        location: data.location || 'Print Room',
+      },
+    });
+
+    // Smart Alert: Nem %40'ın altına düşerse veya %65'i geçerse uyar
+    if (data.humidity < 40 || data.humidity > 65 || data.temperature > 28) {
+      await this.dittofeedService.trackEvent('admin@eagledtfsupply.com', 'environmental_hazard_alert', {
+        humidity: data.humidity,
+        temperature: data.temperature,
+        location: log.location,
+        threshold: 'HUMIDITY_OUT_OF_BOUNDS',
+        recommendation: data.humidity < 40 ? 'Increase humidity to prevent head clogging.' : 'Lower humidity to prevent film oiliness.',
+      });
+    }
+
+    return log;
+  }
+
+  /** Bakım Kaydı (Beyaz mürekkep sirkülasyonu vb.) */
+  async recordMaintenance(data: { printerId: string; operatorName: string; type: string; notes?: string }) {
+    const log = await this.prisma.printerMaintenanceLog.create({
+      data: {
+        printerId: data.printerId,
+        operatorName: data.operatorName,
+        maintenanceType: data.type,
+        notes: data.notes,
+      },
+    });
+
+    // Printer'ın son bakım tarihini güncelle
+    await this.prisma.printer.update({
+      where: { id: data.printerId },
+      data: { lastMaintenanceAt: new Date() },
+    });
+
+    return log;
+  }
+
+  /** Bakım Geçmişi */
+  async getMaintenanceHistory(printerId: string) {
+    return this.prisma.printerMaintenanceLog.findMany({
+      where: { printerId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  /** Akıllı Rulo (Roll) Paketleme Önerisi */
+  async getRollNestingProposal(merchantId: string, printableWidth = 22) {
+    const pendingJobs = await this.prisma.productionJob.findMany({
+      where: { merchantId, status: 'QUEUED', gangSheetBatchId: null },
+      orderBy: { priority: 'desc' },
+    });
+
+    if (pendingJobs.length === 0) return null;
+
+    let totalLinearInches = 0;
+    const items: any[] = [];
+
+    // Basit lineer nesting (DTF roll genelde tek sütun veya dar yan yana)
+    for (const job of pendingJobs) {
+      if (job.widthInch <= printableWidth) {
+        // Tekli sığar
+        totalLinearInches += job.heightInch + 1; // +1 inch margin
+        items.push(job);
+      }
+    }
+
+    return {
+      suggestedRollWidth: printableWidth + 2,
+      totalDesignCount: items.length,
+      requiredRollLengthInch: Math.ceil(totalLinearInches),
+      estimatedFilmCost: (totalLinearInches / 12) * 2.5, // Örn: $2.5 per linear foot
+      jobIds: items.map(i => i.id),
+    };
+  }
+
+  /**
+   * Packaging Strategy Engine
+   * Siparişin boyutuna göre "Rulo" mu "Zarf" mı olacağına karar verir.
+   */
+  async getPackagingStrategy(orderId: string) {
+    const jobs = await this.prisma.productionJob.findMany({
+      where: { orderId },
+    });
+
+    const hasLargeJob = jobs.some(j => (j.widthInch || 0) > 13 || (j.heightInch || 0) > 19);
+    const totalArea = jobs.reduce((sum, j) => sum + (j.areaSquareInch || 0), 0);
+
+    return {
+      orderId,
+      recommendedPackaging: hasLargeJob ? 'HEAVY_DUTY_ROLL_TUBE' : (totalArea > 500 ? 'LARGE_FLAT_MAILER' : 'SMALL_RIGID_ENVELOPE'),
+      shippingNote: hasLargeJob ? 'Roll with parchment paper inside.' : 'Ship flat with cardboard support.',
+      addSilicaPacket: true, // DTF always needs moisture protection
+      mandatoryInstructions: [
+        'Place silica gel packet inside the sleeve.',
+        'Ensure ink is 100% cured (not oily) before packing.',
+        'Seal with moisture-resistant tape.'
+      ]
+    };
   }
 }

@@ -57,7 +57,7 @@ export declare class WishlistService {
         productImage: string | null;
         wishlistId: string;
     }>;
-    clearWishlist(userId: string, merchantId: string): Promise<import("@prisma/client").Prisma.BatchPayload | undefined>;
+    clearWishlist(userId: string, merchantId: string): Promise<import("@prisma/client/client").Prisma.BatchPayload | undefined>;
     isInWishlist(userId: string, productId: string, merchantId: string): Promise<boolean>;
     getWishlistCount(userId: string, merchantId: string): Promise<number>;
 }

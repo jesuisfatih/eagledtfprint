@@ -13,12 +13,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PickupService = void 0;
 const common_1 = require("@nestjs/common");
 const crypto_1 = require("crypto");
+const dittofeed_service_1 = require("../dittofeed/dittofeed.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 let PickupService = PickupService_1 = class PickupService {
     prisma;
+    dittofeed;
     logger = new common_1.Logger(PickupService_1.name);
-    constructor(prisma) {
+    constructor(prisma, dittofeed) {
         this.prisma = prisma;
+        this.dittofeed = dittofeed;
     }
     async createShelf(merchantId, data) {
         return this.prisma.pickupShelf.create({
@@ -175,11 +178,19 @@ let PickupService = PickupService_1 = class PickupService {
         const shelf = await this.prisma.pickupShelf.findFirst({ where: { id: shelfId, merchantId } });
         if (!shelf)
             throw new common_1.NotFoundException('Shelf not found');
-        return this.prisma.pickupOrder.update({
+        const updated = await this.prisma.pickupOrder.update({
             where: { id },
             data: { shelfId, assignedAt: new Date() },
             include: { shelf: true, order: true },
         });
+        if (updated.companyUserId) {
+            await this.dittofeed.trackEvent(updated.companyUserId, 'pickup_shelf_assigned', {
+                pickupOrderId: updated.id,
+                orderNumber: updated.orderNumber,
+                shelfCode: shelf.code,
+            });
+        }
+        return updated;
     }
     async updateStatus(id, merchantId, status) {
         const pickupOrder = await this.prisma.pickupOrder.findFirst({ where: { id, merchantId } });
@@ -196,11 +207,22 @@ let PickupService = PickupService_1 = class PickupService {
             data.notifiedAt = new Date();
         if (status === 'picked_up')
             data.pickedUpAt = new Date();
-        return this.prisma.pickupOrder.update({
+        const updated = await this.prisma.pickupOrder.update({
             where: { id },
             data,
             include: { shelf: true, order: true },
         });
+        if (updated.companyUserId) {
+            const eventName = `pickup_${status}`;
+            await this.dittofeed.trackEvent(updated.companyUserId, eventName, {
+                pickupOrderId: updated.id,
+                orderNumber: updated.orderNumber,
+                status: updated.status,
+                shelfCode: updated.shelf?.code || null,
+                qrCode: updated.qrCode,
+            });
+        }
+        return updated;
     }
     async scanQrCode(qrCode) {
         const pickupOrder = await this.prisma.pickupOrder.findUnique({
@@ -253,6 +275,7 @@ let PickupService = PickupService_1 = class PickupService {
 exports.PickupService = PickupService;
 exports.PickupService = PickupService = PickupService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        dittofeed_service_1.DittofeedService])
 ], PickupService);
 //# sourceMappingURL=pickup.service.js.map

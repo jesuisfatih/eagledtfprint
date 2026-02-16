@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PenpotService } from './penpot.service';
 
@@ -7,6 +8,32 @@ import { PenpotService } from './penpot.service';
 @UseGuards(JwtAuthGuard)
 export class PenpotController {
   constructor(private readonly penpotService: PenpotService) {}
+
+  // ─── PUBLIC: Customer Approval Flow ───
+  @Public()
+  @Get('public/projects/:id')
+  async getPublicProject(@Param('id') id: string) {
+    return this.penpotService.getPublicDesignProject(id);
+  }
+
+  @Public()
+  @Post('public/projects/:id/approve')
+  async approvePublicProject(@Param('id') id: string) {
+    // MerchantId'yi projeden bulmalıyız, updateDesignProjectStatus merchantId bekliyor.
+    // Ancak UUID ile proje bulduğumuz için serviste merchantId zorunluluğunu esnetebiliriz
+    // veya serviste id ile merchantId'yi çekebiliriz.
+    // Şimdilik servise projeden merchantId çekme sorumluluğu verelim.
+    return this.penpotService.updateDesignProjectStatus(id, '', 'APPROVED');
+  }
+
+  @Public()
+  @Post('public/projects/:id/reject')
+  async rejectPublicProject(
+    @Param('id') id: string,
+    @Body('notes') notes: string,
+  ) {
+    return this.penpotService.updateDesignProjectStatus(id, '', 'REJECTED');
+  }
 
   // ─── Create design project from an order ───
   @Post('create-from-order/:orderId')
@@ -45,6 +72,15 @@ export class PenpotController {
     @Body('status') status: string,
   ) {
     return this.penpotService.updateDesignProjectStatus(id, merchantId, status);
+  }
+
+  // ─── Sync design ready status (External/Plugin trigger) ───
+  @Post('sync-ready')
+  async syncReady(
+    @CurrentUser('merchantId') merchantId: string,
+    @Body('fileId') fileId: string,
+  ) {
+    return this.penpotService.syncDesignReady(merchantId, fileId);
   }
 
   // ─── Export design to file ───

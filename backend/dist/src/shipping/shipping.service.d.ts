@@ -112,8 +112,9 @@ export declare class ShippingService {
         zip: any;
         totalItems: number;
         status: string | null;
-        trackingNumber: null;
-        labelUrl: null;
+        trackingNumber: any;
+        labelUrl: any;
+        carrier: any;
     }[]>;
 }
 export {};

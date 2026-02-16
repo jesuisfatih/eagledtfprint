@@ -1,7 +1,9 @@
+import { FactoryFloorService } from './factory-floor.service';
 import { ProductionService } from './production.service';
 export declare class ProductionController {
     private readonly productionService;
-    constructor(productionService: ProductionService);
+    private readonly factoryFloorService;
+    constructor(productionService: ProductionService, factoryFloorService: FactoryFloorService);
     getBoard(merchantId: string): Promise<import("./production.service").KanbanBoard>;
     getStats(merchantId: string): Promise<import("./production.service").ProductionStats>;
     createFromOrder(merchantId: string, orderId: string): Promise<{
@@ -19,11 +21,102 @@ export declare class ProductionController {
         dpi?: number;
         priority?: 'STANDARD' | 'RUSH' | 'SAME_DAY' | 'NEXT_DAY';
         notes?: string;
-    }): Promise<any>;
+    }): Promise<{
+        order: {
+            email: string | null;
+            companyUserId: string | null;
+            shopifyOrderNumber: string | null;
+        };
+    } & {
+        id: string;
+        status: import("@prisma/client/client").$Enums.ProductionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        productType: string;
+        notes: string | null;
+        priority: import("@prisma/client/client").$Enums.ProductionPriority;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        completedAt: Date | null;
+        orderId: string;
+        quantity: number;
+        readyAt: Date | null;
+        designProjectId: string | null;
+        printerId: string | null;
+        operatorId: string | null;
+        operatorName: string | null;
+        gangSheetBatchId: string | null;
+        gangSheetPosition: number | null;
+        widthInch: number;
+        heightInch: number;
+        areaSquareInch: number | null;
+        designFileUrl: string | null;
+        dpi: number | null;
+        dpiValidated: boolean;
+        qcNotes: string | null;
+        qcResult: string | null;
+        queuedAt: Date;
+        prepressStartAt: Date | null;
+        printStartAt: Date | null;
+        cureStartAt: Date | null;
+        cutStartAt: Date | null;
+        qcStartAt: Date | null;
+        qcPassAt: Date | null;
+        packagingStartAt: Date | null;
+        estimatedPrintMinutes: number | null;
+        estimatedReadyAt: Date | null;
+    }>;
     moveStatus(jobId: string, body: {
         status: string;
         operatorName?: string;
-    }): Promise<any>;
+    }): Promise<{
+        printer: {
+            name: string;
+        } | null;
+        order: {
+            email: string | null;
+            companyUserId: string | null;
+            shopifyOrderNumber: string | null;
+        };
+    } & {
+        id: string;
+        status: import("@prisma/client/client").$Enums.ProductionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        productType: string;
+        notes: string | null;
+        priority: import("@prisma/client/client").$Enums.ProductionPriority;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        completedAt: Date | null;
+        orderId: string;
+        quantity: number;
+        readyAt: Date | null;
+        designProjectId: string | null;
+        printerId: string | null;
+        operatorId: string | null;
+        operatorName: string | null;
+        gangSheetBatchId: string | null;
+        gangSheetPosition: number | null;
+        widthInch: number;
+        heightInch: number;
+        areaSquareInch: number | null;
+        designFileUrl: string | null;
+        dpi: number | null;
+        dpiValidated: boolean;
+        qcNotes: string | null;
+        qcResult: string | null;
+        queuedAt: Date;
+        prepressStartAt: Date | null;
+        printStartAt: Date | null;
+        cureStartAt: Date | null;
+        cutStartAt: Date | null;
+        qcStartAt: Date | null;
+        qcPassAt: Date | null;
+        packagingStartAt: Date | null;
+        estimatedPrintMinutes: number | null;
+        estimatedReadyAt: Date | null;
+    }>;
     batchMoveStatus(body: {
         jobIds: string[];
         status: string;
@@ -39,35 +132,349 @@ export declare class ProductionController {
     }>;
     assignPrinter(jobId: string, body: {
         printerId: string;
-    }): Promise<any>;
+    }): Promise<{
+        id: string;
+        status: import("@prisma/client/client").$Enums.ProductionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        productType: string;
+        notes: string | null;
+        priority: import("@prisma/client/client").$Enums.ProductionPriority;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        completedAt: Date | null;
+        orderId: string;
+        quantity: number;
+        readyAt: Date | null;
+        designProjectId: string | null;
+        printerId: string | null;
+        operatorId: string | null;
+        operatorName: string | null;
+        gangSheetBatchId: string | null;
+        gangSheetPosition: number | null;
+        widthInch: number;
+        heightInch: number;
+        areaSquareInch: number | null;
+        designFileUrl: string | null;
+        dpi: number | null;
+        dpiValidated: boolean;
+        qcNotes: string | null;
+        qcResult: string | null;
+        queuedAt: Date;
+        prepressStartAt: Date | null;
+        printStartAt: Date | null;
+        cureStartAt: Date | null;
+        cutStartAt: Date | null;
+        qcStartAt: Date | null;
+        qcPassAt: Date | null;
+        packagingStartAt: Date | null;
+        estimatedPrintMinutes: number | null;
+        estimatedReadyAt: Date | null;
+    }>;
     recordQc(jobId: string, body: {
         result: 'pass' | 'fail' | 'conditional';
         notes?: string;
-    }): Promise<any>;
-    getPrinters(merchantId: string): Promise<any>;
+    }): Promise<{
+        id: string;
+        status: import("@prisma/client/client").$Enums.ProductionStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        productType: string;
+        notes: string | null;
+        priority: import("@prisma/client/client").$Enums.ProductionPriority;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        completedAt: Date | null;
+        orderId: string;
+        quantity: number;
+        readyAt: Date | null;
+        designProjectId: string | null;
+        printerId: string | null;
+        operatorId: string | null;
+        operatorName: string | null;
+        gangSheetBatchId: string | null;
+        gangSheetPosition: number | null;
+        widthInch: number;
+        heightInch: number;
+        areaSquareInch: number | null;
+        designFileUrl: string | null;
+        dpi: number | null;
+        dpiValidated: boolean;
+        qcNotes: string | null;
+        qcResult: string | null;
+        queuedAt: Date;
+        prepressStartAt: Date | null;
+        printStartAt: Date | null;
+        cureStartAt: Date | null;
+        cutStartAt: Date | null;
+        qcStartAt: Date | null;
+        qcPassAt: Date | null;
+        packagingStartAt: Date | null;
+        estimatedPrintMinutes: number | null;
+        estimatedReadyAt: Date | null;
+    }>;
+    getPrinters(merchantId: string): Promise<({
+        jobs: {
+            id: string;
+            status: import("@prisma/client/client").$Enums.ProductionStatus;
+            productType: string;
+            estimatedPrintMinutes: number | null;
+        }[];
+    } & {
+        model: string;
+        name: string;
+        id: string;
+        status: import("@prisma/client/client").$Enums.PrinterStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        maxWidthInch: number;
+        inkCyan: number | null;
+        inkMagenta: number | null;
+        inkYellow: number | null;
+        inkBlack: number | null;
+        inkWhite: number | null;
+        supportedTypes: string[];
+        totalPrintsToday: number;
+        totalPrintsAll: number;
+        totalSqftToday: number;
+        totalSqftAll: number;
+        lastMaintenanceAt: Date | null;
+        nextMaintenanceAt: Date | null;
+        maintenanceNotes: string | null;
+        location: string | null;
+    })[]>;
     createPrinter(merchantId: string, body: {
         name: string;
         model: string;
         maxWidthInch: number;
         supportedTypes?: string[];
         location?: string;
-    }): Promise<any>;
+    }): Promise<{
+        model: string;
+        name: string;
+        id: string;
+        status: import("@prisma/client/client").$Enums.PrinterStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        maxWidthInch: number;
+        inkCyan: number | null;
+        inkMagenta: number | null;
+        inkYellow: number | null;
+        inkBlack: number | null;
+        inkWhite: number | null;
+        supportedTypes: string[];
+        totalPrintsToday: number;
+        totalPrintsAll: number;
+        totalSqftToday: number;
+        totalSqftAll: number;
+        lastMaintenanceAt: Date | null;
+        nextMaintenanceAt: Date | null;
+        maintenanceNotes: string | null;
+        location: string | null;
+    }>;
     updateInk(printerId: string, body: {
         cyan?: number;
         magenta?: number;
         yellow?: number;
         black?: number;
         white?: number;
-    }): Promise<any>;
+    }): Promise<{
+        model: string;
+        name: string;
+        id: string;
+        status: import("@prisma/client/client").$Enums.PrinterStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        maxWidthInch: number;
+        inkCyan: number | null;
+        inkMagenta: number | null;
+        inkYellow: number | null;
+        inkBlack: number | null;
+        inkWhite: number | null;
+        supportedTypes: string[];
+        totalPrintsToday: number;
+        totalPrintsAll: number;
+        totalSqftToday: number;
+        totalSqftAll: number;
+        lastMaintenanceAt: Date | null;
+        nextMaintenanceAt: Date | null;
+        maintenanceNotes: string | null;
+        location: string | null;
+    }>;
     updatePrinterStatus(printerId: string, body: {
         status: 'IDLE' | 'PRINTING' | 'MAINTENANCE' | 'OFFLINE';
         notes?: string;
-    }): Promise<any>;
-    getPrinterStats(merchantId: string): Promise<any>;
+    }): Promise<{
+        model: string;
+        name: string;
+        id: string;
+        status: import("@prisma/client/client").$Enums.PrinterStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        maxWidthInch: number;
+        inkCyan: number | null;
+        inkMagenta: number | null;
+        inkYellow: number | null;
+        inkBlack: number | null;
+        inkWhite: number | null;
+        supportedTypes: string[];
+        totalPrintsToday: number;
+        totalPrintsAll: number;
+        totalSqftToday: number;
+        totalSqftAll: number;
+        lastMaintenanceAt: Date | null;
+        nextMaintenanceAt: Date | null;
+        maintenanceNotes: string | null;
+        location: string | null;
+    }>;
+    getPrinterStats(merchantId: string): Promise<{
+        id: string;
+        name: string;
+        model: string;
+        status: import("@prisma/client/client").$Enums.PrinterStatus;
+        inkLevels: {
+            cyan: number | null;
+            magenta: number | null;
+            yellow: number | null;
+            black: number | null;
+            white: number | null;
+        };
+        totalJobsCompleted: number;
+        totalSqft: number;
+        avgPrintTimeMinutes: number;
+    }[]>;
     createGangBatch(merchantId: string, body: {
         sheetWidth: number;
         sheetHeight: number;
         jobIds: string[];
-    }): Promise<any>;
-    getGangBatches(merchantId: string, status?: string): Promise<any>;
+    }): Promise<{
+        jobCount: number;
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        sheetWidth: number;
+        sheetHeight: number;
+        fillRate: number;
+        usedArea: number;
+        totalArea: number;
+        wasteArea: number;
+        isMultiOrder: boolean;
+        orderCount: number;
+    }>;
+    getGangBatches(merchantId: string, status?: string): Promise<({
+        jobs: {
+            id: string;
+            productType: string;
+            orderId: string;
+            gangSheetPosition: number | null;
+            widthInch: number;
+            heightInch: number;
+            areaSquareInch: number | null;
+            order: {
+                shopifyOrderNumber: string | null;
+            };
+        }[];
+    } & {
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        sheetWidth: number;
+        sheetHeight: number;
+        fillRate: number;
+        usedArea: number;
+        totalArea: number;
+        wasteArea: number;
+        isMultiOrder: boolean;
+        orderCount: number;
+    })[]>;
+    getRecommendations(merchantId: string): Promise<any[]>;
+    getLabelData(id: string): Promise<{
+        labelId: string;
+        orderNumber: any;
+        customer: any;
+        productType: string;
+        dimensions: string;
+        printer: string;
+        qrCodeContent: string;
+        packagingDate: string;
+        priority: import("@prisma/client/client").$Enums.ProductionPriority;
+    }>;
+    logEnv(merchantId: string, data: {
+        temperature: number;
+        humidity: number;
+        location?: string;
+    }): Promise<{
+        id: string;
+        merchantId: string;
+        location: string | null;
+        temperature: number;
+        humidity: number;
+        recordedAt: Date;
+    }>;
+    recordMaintenance(data: {
+        printerId: string;
+        operatorName: string;
+        type: string;
+        notes?: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        notes: string | null;
+        printerId: string;
+        operatorName: string;
+        maintenanceType: string;
+    }>;
+    getMaintenance(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        notes: string | null;
+        printerId: string;
+        operatorName: string;
+        maintenanceType: string;
+    }[]>;
+    getRollNesting(merchantId: string): Promise<{
+        suggestedRollWidth: number;
+        totalDesignCount: number;
+        requiredRollLengthInch: number;
+        estimatedFilmCost: number;
+        jobIds: any[];
+    } | null>;
+    getPackaging(orderId: string): Promise<{
+        orderId: string;
+        recommendedPackaging: string;
+        shippingNote: string;
+        addSilicaPacket: boolean;
+        mandatoryInstructions: string[];
+    }>;
+    getFactoryDashboard(merchantId: string): Promise<{
+        totals: {
+            intake: number;
+            design: number;
+            production: number;
+            ready: number;
+        };
+        orders: {
+            orderId: string;
+            orderNumber: string;
+            company: any;
+            email: string;
+            phase: string;
+            qrCode: string;
+            designStatus: string;
+            jobCount: number;
+            rushPriority: boolean;
+            progress: number;
+            isOverdue: boolean;
+            oldestJobAge: number;
+        }[];
+    }>;
+    getPipelineDetail(merchantId: string, orderId: string): Promise<import("./factory-floor.service").FactoryFloorOrder>;
 }

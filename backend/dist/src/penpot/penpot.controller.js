@@ -15,12 +15,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PenpotController = void 0;
 const common_1 = require("@nestjs/common");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const public_decorator_1 = require("../auth/decorators/public.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const penpot_service_1 = require("./penpot.service");
 let PenpotController = class PenpotController {
     penpotService;
     constructor(penpotService) {
         this.penpotService = penpotService;
+    }
+    async getPublicProject(id) {
+        return this.penpotService.getPublicDesignProject(id);
+    }
+    async approvePublicProject(id) {
+        return this.penpotService.updateDesignProjectStatus(id, '', 'APPROVED');
+    }
+    async rejectPublicProject(id, notes) {
+        return this.penpotService.updateDesignProjectStatus(id, '', 'REJECTED');
     }
     async createFromOrder(orderId, merchantId) {
         const result = await this.penpotService.createDesignProjectFromOrder(orderId, merchantId);
@@ -35,6 +45,9 @@ let PenpotController = class PenpotController {
     async updateStatus(id, merchantId, status) {
         return this.penpotService.updateDesignProjectStatus(id, merchantId, status);
     }
+    async syncReady(merchantId, fileId) {
+        return this.penpotService.syncDesignReady(merchantId, fileId);
+    }
     async exportDesign(id, merchantId, format) {
         return this.penpotService.exportDesign(id, merchantId, format || 'pdf');
     }
@@ -43,6 +56,31 @@ let PenpotController = class PenpotController {
     }
 };
 exports.PenpotController = PenpotController;
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)('public/projects/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PenpotController.prototype, "getPublicProject", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('public/projects/:id/approve'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PenpotController.prototype, "approvePublicProject", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('public/projects/:id/reject'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('notes')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PenpotController.prototype, "rejectPublicProject", null);
 __decorate([
     (0, common_1.Post)('create-from-order/:orderId'),
     __param(0, (0, common_1.Param)('orderId')),
@@ -77,6 +115,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], PenpotController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Post)('sync-ready'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Body)('fileId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PenpotController.prototype, "syncReady", null);
 __decorate([
     (0, common_1.Post)('projects/:id/export'),
     __param(0, (0, common_1.Param)('id')),

@@ -1,9 +1,11 @@
 import { Prisma } from '@prisma/client';
+import { DittofeedService } from '../dittofeed/dittofeed.service';
 import { PrismaService } from '../prisma/prisma.service';
 export declare class CustomerIntelligenceService {
     private prisma;
+    private dittofeed;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, dittofeed: DittofeedService);
     calculateInsights(merchantId: string): Promise<{
         processed: number;
     }>;
@@ -222,4 +224,7 @@ export declare class CustomerIntelligenceService {
         metafields: Prisma.JsonValue | null;
         syncedAt: Date;
     })[]>;
+    syncInsightsToDittofeed(merchantId: string): Promise<{
+        synced: number;
+    }>;
 }

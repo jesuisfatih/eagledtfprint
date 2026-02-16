@@ -47,7 +47,7 @@ export declare class EventsService {
         addToCarts: number;
         uniqueSessions: number;
         conversionRate: string | number;
-        topProducts: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.ActivityLogGroupByOutputType, "shopifyProductId"[]> & {
+        topProducts: (import("@prisma/client/client").Prisma.PickEnumerable<import("@prisma/client/client").Prisma.ActivityLogGroupByOutputType, "shopifyProductId"[]> & {
             _count: {
                 id: number;
             };

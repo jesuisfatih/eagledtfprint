@@ -91,6 +91,21 @@ let DittofeedService = DittofeedService_1 = class DittofeedService {
                 event,
                 properties,
             });
+            let companyUserId = null;
+            let merchantId = properties.merchantId || properties.merchant_id;
+            if (userId.length > 20 && !userId.includes('@')) {
+                companyUserId = userId;
+            }
+            if (merchantId) {
+                await this.prisma.activityLog.create({
+                    data: {
+                        merchantId,
+                        companyUserId,
+                        eventType: `dittofeed:${event}`,
+                        payload: { userId, properties },
+                    },
+                }).catch(() => { });
+            }
         }
         catch (err) {
             const status = err.response?.status;
@@ -134,6 +149,7 @@ let DittofeedService = DittofeedService_1 = class DittofeedService {
         const productAnalysis = this.analyzeOrderProducts(orderData.lineItems);
         await this.trackEvent(orderData.userId, 'order_placed', {
             orderId: orderData.orderId,
+            merchantId: orderData.merchantId,
             orderNumber: orderData.orderNumber,
             totalPrice: orderData.totalPrice,
             financialStatus: orderData.financialStatus,
@@ -158,9 +174,10 @@ let DittofeedService = DittofeedService_1 = class DittofeedService {
             totalPrice,
         });
     }
-    async trackOrderFulfilled(userId, orderId, orderNumber, trackingInfo) {
+    async trackOrderFulfilled(userId, orderId, orderNumber, merchantId, trackingInfo) {
         await this.trackEvent(userId, 'order_fulfilled', {
             orderId,
+            merchantId,
             orderNumber,
             ...trackingInfo,
         });

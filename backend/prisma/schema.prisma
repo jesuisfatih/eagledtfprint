@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -61,6 +62,7 @@ model Merchant {
   productionJobs ProductionJob[]
   printers       Printer[]
   gangSheetBatches GangSheetBatch[]
+  environmentalLogs EnvironmentalLog[]
 
   @@index([shopDomain])
   @@index([status])
@@ -1827,6 +1829,7 @@ model Printer {
   // Relations
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   jobs     ProductionJob[]
+  maintenanceLogs PrinterMaintenanceLog[]
 
   @@index([merchantId])
   @@index([status])
@@ -1865,6 +1868,35 @@ model GangSheetBatch {
   @@index([status])
   @@index([fillRate])
   @@map("gang_sheet_batches")
+}
+
+model PrinterMaintenanceLog {
+  id              String   @id @default(uuid())
+  printerId       String   @map("printer_id")
+  operatorName    String   @map("operator_name")
+  maintenanceType String   @map("maintenance_type") // WHITE_INK_FLUSH, HEAD_CLEAN, WIPER_REPLACE, CAP_CLEAN
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  printer Printer @relation(fields: [printerId], references: [id], onDelete: Cascade)
+
+  @@index([printerId])
+  @@map("printer_maintenance_logs")
+}
+
+model EnvironmentalLog {
+  id          String   @id @default(uuid())
+  merchantId  String   @map("merchant_id")
+  location    String?  // Room name
+  temperature Float    // Celsius
+  humidity    Float    // Percentage
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([recordedAt])
+  @@map("environmental_logs")
 }
 
 // ============================================

@@ -16,7 +16,7 @@ export declare class AnalyticsController {
         }[];
         conversionRate: string | number;
     }>;
-    getTopProducts(merchantId: string, limit?: string): Promise<(import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.ActivityLogGroupByOutputType, "shopifyProductId"[]> & {
+    getTopProducts(merchantId: string, limit?: string): Promise<(import("@prisma/client/client").Prisma.PickEnumerable<import("@prisma/client/client").Prisma.ActivityLogGroupByOutputType, "shopifyProductId"[]> & {
         _count: {
             id: number;
         };
@@ -27,4 +27,16 @@ export declare class AnalyticsController {
         orderCount: number;
         totalSpent: number;
     }[]>;
+    getProfitability(orderId: string): Promise<{
+        orderNumber: string | null;
+        revenue: number;
+        costs: {
+            shipping: number;
+            material: number;
+            labor: number;
+        };
+        netProfit: number;
+        margin: number;
+    } | null>;
+    getOperatorLeaderboard(merchantId: string): Promise<any[]>;
 }

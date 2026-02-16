@@ -49,6 +49,14 @@ export declare class OrdersController {
         companyUser: any;
         createdAt: any;
         updatedAt: any;
+        productionJobs: any;
+        linkedDesigns: any;
+        activityLogs: {
+            id: any;
+            eventType: any;
+            createdAt: any;
+            payload: any;
+        }[];
     }[]>;
     getStats(merchantId: string, companyId: string): Promise<{
         total: number;
@@ -186,5 +194,13 @@ export declare class OrdersController {
         companyUser: any;
         createdAt: any;
         updatedAt: any;
+        productionJobs: any;
+        linkedDesigns: any;
+        activityLogs: {
+            id: any;
+            eventType: any;
+            createdAt: any;
+            payload: any;
+        }[];
     } | null>;
 }

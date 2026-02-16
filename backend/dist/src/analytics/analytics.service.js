@@ -97,6 +97,70 @@ let AnalyticsService = class AnalyticsService {
             totalSpent: c.orders.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0),
         }));
     }
+    async getOrderProfitability(orderId) {
+        const order = await this.prisma.orderLocal.findUnique({
+            where: { id: orderId },
+            include: { productionJobs: true },
+        });
+        if (!order)
+            return null;
+        const revenue = Number(order.totalPrice || 0);
+        const shippingCost = Number(order.totalShipping || 0);
+        let materialCost = 0;
+        for (const job of order.productionJobs) {
+            if (!job.areaSquareInch)
+                continue;
+            const filmCost = (job.areaSquareInch / 144) * 1.25;
+            const inkCost = (job.areaSquareInch / 1550) * 15 * 0.10;
+            materialCost += filmCost + inkCost + 0.50;
+        }
+        const netProfit = revenue - shippingCost - materialCost;
+        return {
+            orderNumber: order.shopifyOrderNumber,
+            revenue,
+            costs: {
+                shipping: shippingCost,
+                material: Math.round(materialCost * 100) / 100,
+                labor: 0,
+            },
+            netProfit: Math.round(netProfit * 100) / 100,
+            margin: revenue > 0 ? Math.round((netProfit / revenue) * 100) : 0,
+        };
+    }
+    async getOperatorLeaderboard(merchantId) {
+        const jobs = await this.prisma.productionJob.findMany({
+            where: {
+                merchantId,
+                status: 'COMPLETED',
+                operatorId: { not: null },
+            },
+            select: {
+                operatorId: true,
+                operatorName: true,
+                areaSquareInch: true,
+                qcResult: true,
+            },
+        });
+        const stats = new Map();
+        for (const job of jobs) {
+            const opId = job.operatorId;
+            if (!stats.has(opId)) {
+                stats.set(opId, { name: job.operatorName, completedCount: 0, totalSqInch: 0, failCount: 0 });
+            }
+            const entry = stats.get(opId);
+            entry.completedCount++;
+            entry.totalSqInch += job.areaSquareInch || 0;
+            if (job.qcResult === 'fail')
+                entry.failCount++;
+        }
+        return Array.from(stats.values())
+            .map(s => ({
+            ...s,
+            totalSqFt: Math.round((s.totalSqInch / 144) * 10) / 10,
+            efficiency: s.completedCount > 0 ? Math.round(((s.completedCount - s.failCount) / s.completedCount) * 100) : 0
+        }))
+            .sort((a, b) => b.totalSqFt - a.totalSqFt);
+    }
 };
 exports.AnalyticsService = AnalyticsService;
 exports.AnalyticsService = AnalyticsService = __decorate([

@@ -10,6 +10,7 @@ exports.PenpotModule = void 0;
 const common_1 = require("@nestjs/common");
 const dittofeed_module_1 = require("../dittofeed/dittofeed.module");
 const prisma_module_1 = require("../prisma/prisma.module");
+const production_module_1 = require("../production/production.module");
 const penpot_controller_1 = require("./penpot.controller");
 const penpot_service_1 = require("./penpot.service");
 let PenpotModule = class PenpotModule {
@@ -17,7 +18,7 @@ let PenpotModule = class PenpotModule {
 exports.PenpotModule = PenpotModule;
 exports.PenpotModule = PenpotModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, dittofeed_module_1.DittofeedModule],
+        imports: [prisma_module_1.PrismaModule, dittofeed_module_1.DittofeedModule, (0, common_1.forwardRef)(() => production_module_1.ProductionModule)],
         controllers: [penpot_controller_1.PenpotController],
         providers: [penpot_service_1.PenpotService],
         exports: [penpot_service_1.PenpotService],

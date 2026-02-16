@@ -60,6 +60,14 @@ export declare class OrdersService {
         companyUser: any;
         createdAt: any;
         updatedAt: any;
+        productionJobs: any;
+        linkedDesigns: any;
+        activityLogs: {
+            id: any;
+            eventType: any;
+            createdAt: any;
+            payload: any;
+        }[];
     }[]>;
     findOne(id: string, merchantId: string, companyId?: string): Promise<{
         id: any;
@@ -108,6 +116,14 @@ export declare class OrdersService {
         companyUser: any;
         createdAt: any;
         updatedAt: any;
+        productionJobs: any;
+        linkedDesigns: any;
+        activityLogs: {
+            id: any;
+            eventType: any;
+            createdAt: any;
+            payload: any;
+        }[];
     } | null>;
     getStats(merchantId: string, companyId?: string): Promise<{
         total: number;

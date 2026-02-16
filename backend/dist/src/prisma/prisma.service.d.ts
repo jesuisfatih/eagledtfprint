@@ -47,9 +47,11 @@ export declare class PrismaService implements OnModuleInit, OnModuleDestroy {
     get customerListItem(): import("@prisma/client").Prisma.CustomerListItemDelegate<import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     get designProject(): any;
     get marketingSync(): any;
-    get productionJob(): any;
-    get printer(): any;
-    get gangSheetBatch(): any;
+    get productionJob(): import("@prisma/client").Prisma.ProductionJobDelegate<import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    get printer(): import("@prisma/client").Prisma.PrinterDelegate<import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    get gangSheetBatch(): import("@prisma/client").Prisma.GangSheetBatchDelegate<import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    get environmentalLog(): import("@prisma/client").Prisma.EnvironmentalLogDelegate<import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    get printerMaintenanceLog(): import("@prisma/client").Prisma.PrinterMaintenanceLogDelegate<import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
     cleanDatabase(): Promise<any>;

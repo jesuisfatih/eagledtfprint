@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { DittofeedService } from '../dittofeed/dittofeed.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProductionService } from '../production/production.service';
 
 /**
  * PenpotService — Integration with the centralized Penpot design platform.
@@ -22,6 +23,8 @@ export class PenpotService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private dittofeed: DittofeedService,
+    @Inject(forwardRef(() => ProductionService))
+    private production: ProductionService,
   ) {}
 
   async onModuleInit() {
@@ -70,9 +73,30 @@ export class PenpotService implements OnModuleInit {
     return this.initialized && this.client !== null;
   }
 
-  // ─── GET PUBLIC URL for Penpot frontend ───
+  /** Penpot dashboard URL al */
   getPublicUrl(): string {
     return process.env.PENPOT_PUBLIC_URL || 'https://design.techifyboost.com';
+  }
+
+  /** Müşteri onayı için proje detayı (Public) */
+  async getPublicDesignProject(id: string) {
+    const project = await this.prisma.designProject.findUnique({
+      where: { id },
+      include: {
+        merchant: { select: { name: true } },
+      },
+    });
+
+    if (!project) throw new NotFoundException('Project not found');
+
+    return {
+      id: project.id,
+      title: project.title,
+      status: project.status,
+      merchantName: project.merchant?.name,
+      viewUrl: project.penpotFileId ? `${this.getPublicUrl()}/view/${project.penpotFileId}` : null,
+      fileCount: project.fileCount,
+    };
   }
 
   // ─── CREATE DESIGN PROJECT FROM ORDER ───
@@ -477,6 +501,16 @@ export class PenpotService implements OnModuleInit {
 
   // ─── UPDATE DESIGN PROJECT STATUS ───
   async updateDesignProjectStatus(id: string, merchantId: string, status: string) {
+    // Projeyi çek (merchantId opsiyonel, public approval için)
+    const existing = await this.prisma.designProject.findUnique({
+      where: { id },
+      select: { id: true, merchantId: true, orderId: true, companyUserId: true }
+    });
+
+    if (!existing) throw new NotFoundException('Design project not found');
+
+    const effectiveMerchantId = merchantId || existing.merchantId;
+
     const project = await this.prisma.designProject.update({
       where: { id },
       data: { status },
@@ -484,14 +518,59 @@ export class PenpotService implements OnModuleInit {
 
     // Track status change in Dittofeed
     if (project.companyUserId) {
-      await this.dittofeed.trackDesignEvent(project.companyUserId, 'Design Status Changed', {
+      const eventName = (status === 'DESIGN_READY' || status === 'design_ready')
+        ? 'design_waiting_approval'
+        : (status === 'APPROVED' || status === 'approved')
+          ? 'design_approved'
+          : (status === 'REJECTED' || status === 'rejected')
+            ? 'design_rejected'
+            : 'Design Status Changed';
+
+      await this.dittofeed.trackDesignEvent(project.companyUserId, eventName, {
         designProjectId: project.id,
         orderId: project.orderId,
         status,
-      });
+        metadata: {
+          approvalUrl: `https://app.eagledtfsupply.com/design-approval/${project.id}`,
+        }
+      } as any);
+    }
+
+    // ━━━ PRODUCTION: Auto-induction when APPROVED ━━━
+    if (status === 'APPROVED' || status === 'approved') {
+      try {
+        // 1. Üretim işlerini oluştur
+        await this.production.createJobsFromOrder(effectiveMerchantId, project.orderId);
+
+        // 2. Otomatik export tetikle (Print Server için)
+        await this.exportDesign(project.id, effectiveMerchantId, 'pdf');
+        this.logger.log(`Automated export triggered for APPROVED project ${project.id}`);
+      } catch (err: any) {
+        this.logger.error(`Failed to trigger production/export for order ${project.orderId}: ${err.message}`);
+      }
     }
 
     return project;
+  }
+
+  /**
+   * Penpot Webhook / Sync
+   * Penpot plugin'inden gelen "Tasarım Hazır" sinyalini yakalar.
+   */
+  async syncDesignReady(merchantId: string, penpotFileId: string) {
+    const project = await this.prisma.designProject.findFirst({
+      where: { penpotFileId, merchantId },
+    });
+
+    if (!project) {
+      throw new NotFoundException(`Design project for Penpot File ${penpotFileId} not found`);
+    }
+
+    // Statusü DESIGN_READY yapıyoruz (Tasarımcı işini bitirdi, onay bekliyor)
+    const updated = await this.updateDesignProjectStatus(project.id, merchantId, 'DESIGN_READY');
+
+    this.logger.log(`Design marked as READY via sync: Project ${project.id} (File ${penpotFileId})`);
+    return updated;
   }
 
   // ─── EXPORT DESIGN ───
@@ -546,5 +625,28 @@ export class PenpotService implements OnModuleInit {
       this.logger.error(`Failed to export design ${designProjectId}: ${err.message}`);
       return { success: false, error: err.message };
     }
+  }
+
+  /**
+   * File Revision Handler (Designer -> Customer)
+   * Tasarımcı dosyayı beğenmezse müşteriden yenisini ister.
+   */
+  async requestRevision(id: string, merchantId: string, notes: string) {
+    const project = await this.updateDesignProjectStatus(id, merchantId, 'REVISION_REQUESTED');
+
+    if (project.companyUserId) {
+      await this.dittofeed.trackDesignEvent(project.companyUserId, 'Design Revision Requested', {
+        designProjectId: project.id,
+        orderId: project.orderId,
+        status: 'REVISION_REQUESTED',
+        metadata: {
+          revisionNotes: notes,
+          uploadUrl: `https://app.eagledtfsupply.com/order/${project.orderId}/upload`,
+        }
+      } as any);
+    }
+
+    this.logger.log(`Revision requested for project ${project.id}: ${notes}`);
+    return project;
   }
 }

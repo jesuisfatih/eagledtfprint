@@ -12,8 +12,9 @@ export declare class ShippingController {
         zip: any;
         totalItems: number;
         status: string | null;
-        trackingNumber: null;
-        labelUrl: null;
+        trackingNumber: any;
+        labelUrl: any;
+        carrier: any;
     }[]>;
     getRates(merchantId: string, body: any): Promise<import("./shipping.service").ShippingRate[]>;
     createShipment(merchantId: string, body: any): Promise<import("./shipping.service").ShipmentResult>;

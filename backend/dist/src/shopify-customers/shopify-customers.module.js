@@ -15,11 +15,13 @@ const proactive_offer_controller_1 = require("../customers/proactive-offer.contr
 const proactive_offer_service_1 = require("../customers/proactive-offer.service");
 const shopify_customers_controller_1 = require("./shopify-customers.controller");
 const shopify_customers_service_1 = require("./shopify-customers.service");
+const dittofeed_module_1 = require("../dittofeed/dittofeed.module");
 let ShopifyCustomersModule = class ShopifyCustomersModule {
 };
 exports.ShopifyCustomersModule = ShopifyCustomersModule;
 exports.ShopifyCustomersModule = ShopifyCustomersModule = __decorate([
     (0, common_1.Module)({
+        imports: [dittofeed_module_1.DittofeedModule],
         controllers: [shopify_customers_controller_1.ShopifyCustomersController, proactive_offer_controller_1.ProactiveOfferController, customer_lists_controller_1.CustomerListsController],
         providers: [shopify_customers_service_1.ShopifyCustomersService, customer_intelligence_service_1.CustomerIntelligenceService, proactive_offer_service_1.ProactiveOfferService, customer_lists_service_1.CustomerListsService],
         exports: [shopify_customers_service_1.ShopifyCustomersService, customer_intelligence_service_1.CustomerIntelligenceService, proactive_offer_service_1.ProactiveOfferService, customer_lists_service_1.CustomerListsService],

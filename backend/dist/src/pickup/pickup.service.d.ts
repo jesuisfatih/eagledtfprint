@@ -1,8 +1,10 @@
+import { DittofeedService } from '../dittofeed/dittofeed.service';
 import { PrismaService } from '../prisma/prisma.service';
 export declare class PickupService {
     private prisma;
+    private dittofeed;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, dittofeed: DittofeedService);
     createShelf(merchantId: string, data: {
         code: string;
         name?: string;

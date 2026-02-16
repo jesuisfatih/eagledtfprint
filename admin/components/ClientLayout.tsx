@@ -1,17 +1,17 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
-import { AuthProvider } from '@/lib/auth-context';
-import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import Sidebar from '@/components/Sidebar';
 import { ToastContainer } from '@/components/ui';
+import { AuthProvider } from '@/lib/auth-context';
+import { usePathname } from 'next/navigation';
+import { ReactNode } from 'react';
 
 const PUBLIC_PATHS = ['/login'];
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+  const isPublicPath = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/design-approval');
 
   if (isPublicPath) {
     return (

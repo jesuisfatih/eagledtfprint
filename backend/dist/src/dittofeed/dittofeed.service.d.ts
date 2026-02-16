@@ -1,6 +1,6 @@
 import { OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-export type DittofeedEventName = 'order_placed' | 'order_fulfilled' | 'order_cancelled' | 'order_refunded' | 'order_paid' | 'gang_sheet_created' | 'gang_sheet_fill_rate_low' | 'design_uploaded' | 'design_approved' | 'design_rejected' | 'design_low_resolution' | 'production_started' | 'production_completed' | 'production_delayed' | 'pickup_ready' | 'pickup_completed' | 'pickup_reminder' | 'shipment_created' | 'shipment_delivered' | 'supply_purchased' | 'supply_running_low' | 'supply_back_in_stock' | 'price_tier_upgraded' | 'price_tier_downgraded' | 'volume_discount_unlocked' | 'cart_created' | 'cart_abandoned' | 'cart_recovered' | 'Product Viewed' | 'Added to Cart' | 'Page Viewed' | 'Collection Viewed' | 'Order Placed';
+export type DittofeedEventName = 'order_placed' | 'order_fulfilled' | 'order_cancelled' | 'order_refunded' | 'order_paid' | 'gang_sheet_created' | 'gang_sheet_fill_rate_low' | 'design_uploaded' | 'design_approved' | 'design_rejected' | 'design_waiting_approval' | 'design_low_resolution' | 'production_started' | 'production_completed' | 'production_delayed' | 'internal_sla_exceeded' | 'pickup_ready' | 'pickup_completed' | 'pickup_reminder' | 'shipment_created' | 'shipment_delivered' | 'supply_purchased' | 'supply_running_low' | 'supply_back_in_stock' | 'price_tier_upgraded' | 'price_tier_downgraded' | 'volume_discount_unlocked' | 'cart_created' | 'cart_abandoned' | 'cart_recovered' | 'Product Viewed' | 'Added to Cart' | 'Page Viewed' | 'Collection Viewed' | 'Order Placed';
 export interface DittofeedUserTraits {
     email: string;
     firstName?: string;
@@ -70,6 +70,7 @@ export declare class DittofeedService implements OnModuleInit {
     trackOrderPlaced(orderData: {
         userId: string;
         orderId: string;
+        merchantId: string;
         orderNumber: string;
         totalPrice: number;
         financialStatus: string;
@@ -81,7 +82,7 @@ export declare class DittofeedService implements OnModuleInit {
         email?: string;
     }): Promise<void>;
     trackOrderPaid(userId: string, orderId: string, orderNumber: string, totalPrice: number): Promise<void>;
-    trackOrderFulfilled(userId: string, orderId: string, orderNumber: string, trackingInfo?: {
+    trackOrderFulfilled(userId: string, orderId: string, orderNumber: string, merchantId: string, trackingInfo?: {
         trackingNumber?: string;
         trackingUrl?: string;
         carrier?: string;

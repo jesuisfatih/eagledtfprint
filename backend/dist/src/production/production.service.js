@@ -356,6 +356,102 @@ let ProductionService = ProductionService_1 = class ProductionService {
             orderBy: { createdAt: 'desc' },
         });
     }
+    async getBatchRecommendations(merchantId) {
+        const pendingJobs = await this.prisma.productionJob.findMany({
+            where: {
+                merchantId,
+                status: 'QUEUED',
+                gangSheetBatchId: null,
+            },
+            include: {
+                order: { select: { shopifyOrderNumber: true, company: { select: { name: true } } } },
+            },
+            orderBy: [
+                { priority: 'desc' },
+                { queuedAt: 'asc' },
+            ],
+        });
+        const groups = {};
+        for (const job of pendingJobs) {
+            if (!groups[job.productType])
+                groups[job.productType] = [];
+            groups[job.productType].push(job);
+        }
+        const recommendations = Object.entries(groups).map(([type, jobs]) => {
+            const batches = [];
+            for (let i = 0; i < jobs.length; i += 10) {
+                const batchJobs = jobs.slice(i, i + 10);
+                const totalWidth = batchJobs.reduce((sum, j) => sum + j.widthInch, 0);
+                const avgHeight = batchJobs.reduce((sum, j) => sum + j.heightInch, 0) / batchJobs.length;
+                const hasRush = batchJobs.some(j => ['RUSH', 'SAME_DAY'].includes(j.priority));
+                batches.push({
+                    productType: type,
+                    jobCount: batchJobs.length,
+                    jobIds: batchJobs.map(j => j.id),
+                    totalWidth,
+                    estimatedSheetHeight: Math.ceil(avgHeight * (batchJobs.length / 2)),
+                    hasRush,
+                    priority: hasRush ? 'HIGH' : 'NORMAL',
+                    jobs: batchJobs.map(j => ({
+                        id: j.id,
+                        orderNumber: j.order?.shopifyOrderNumber,
+                        company: j.order?.company?.name,
+                        dimensions: `${j.widthInch}x${j.heightInch}`,
+                    })),
+                });
+            }
+            return batches;
+        }).flat();
+        return recommendations;
+    }
+    async getLabelData(jobId) {
+        const job = await this.prisma.productionJob.findUnique({
+            where: { id: jobId },
+            include: {
+                order: {
+                    select: {
+                        shopifyOrderNumber: true,
+                        email: true,
+                        shippingAddress: true,
+                    },
+                },
+                printer: { select: { name: true } },
+            },
+        });
+        if (!job)
+            throw new common_1.NotFoundException('Job not found');
+        return {
+            labelId: `LBL-${job.id.split('-')[0].toUpperCase()}`,
+            orderNumber: job.order?.shopifyOrderNumber,
+            customer: job.order?.email,
+            productType: job.productType,
+            dimensions: `${job.widthInch}"x${job.heightInch}"`,
+            printer: job.printer?.name || 'N/A',
+            qrCodeContent: `https://app.eagledtfsupply.com/factory-floor/job/${job.id}`,
+            packagingDate: new Date().toISOString(),
+            priority: job.priority,
+        };
+    }
+    async checkProductionSLAs() {
+        this.logger.log('Checking Production SLAs...');
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const delayedJobs = await this.prisma.productionJob.findMany({
+            where: {
+                status: { notIn: ['COMPLETED', 'CANCELLED', 'READY'] },
+                updatedAt: { lt: twentyFourHoursAgo },
+            },
+            include: { order: true },
+        });
+        for (const job of delayedJobs) {
+            this.logger.warn(`SLA EXCEEDED: Job ${job.id} (Order ${job.order?.shopifyOrderNumber}) has been in ${job.status} for > 24h.`);
+            await this.dittofeedService.trackEvent('admin@eagledtfsupply.com', 'internal_sla_exceeded', {
+                jobId: job.id,
+                orderNumber: job.order?.shopifyOrderNumber,
+                status: job.status,
+                lastUpdated: job.updatedAt,
+            });
+        }
+    }
     async getStats(merchantId) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -467,7 +563,10 @@ let ProductionService = ProductionService_1 = class ProductionService {
         });
     }
     async recordQcResult(jobId, result, notes) {
-        const job = await this.prisma.productionJob.findUnique({ where: { id: jobId } });
+        const job = await this.prisma.productionJob.findUnique({
+            where: { id: jobId },
+            include: { order: { select: { shopifyOrderNumber: true } } },
+        });
         if (!job)
             throw new common_1.NotFoundException(`Job ${jobId} not found`);
         if (job.status !== 'QC_CHECK') {
@@ -483,13 +582,17 @@ let ProductionService = ProductionService_1 = class ProductionService {
             updateData.packagingStartAt = new Date();
         }
         else {
-            updateData.status = 'CUTTING';
+            updateData.status = 'QUEUED';
+            updateData.priority = 'RUSH';
             updateData.qcStartAt = null;
+            updateData.notes = `[QC FAILED] ${notes || 'No notes'}`;
+            this.logger.warn(`Job ${jobId} (Order ${job.order?.shopifyOrderNumber}) failed QC. Re-queued with RUSH priority.`);
         }
-        return this.prisma.productionJob.update({
+        const updated = await this.prisma.productionJob.update({
             where: { id: jobId },
             data: updateData,
         });
+        return updated;
     }
     async resetDailyPrinterStats() {
         try {
@@ -504,6 +607,19 @@ let ProductionService = ProductionService_1 = class ProductionService {
         catch (err) {
             this.logger.error(`Failed to reset daily stats: ${err.message}`);
         }
+    }
+    async calculateConsumption(jobId) {
+        const job = await this.prisma.productionJob.findUnique({
+            where: { id: jobId },
+        });
+        if (!job || !job.areaSquareInch)
+            return null;
+        const areaSqMtr = job.areaSquareInch / 1550;
+        return {
+            estimatedInkMl: Math.round(areaSqMtr * 15 * 100) / 100,
+            estimatedFilmSqFt: Math.round((job.areaSquareInch / 144) * 1.1 * 100) / 100,
+            estimatedPowderGr: Math.round(areaSqMtr * 10 * 100) / 100,
+        };
     }
     parseDimensions(lineItem) {
         const title = lineItem.variant_title || lineItem.title || '';
@@ -565,8 +681,97 @@ let ProductionService = ProductionService_1 = class ProductionService {
         };
         return map[status] || null;
     }
+    async logEnvironment(merchantId, data) {
+        const log = await this.prisma.environmentalLog.create({
+            data: {
+                merchantId,
+                temperature: data.temperature,
+                humidity: data.humidity,
+                location: data.location || 'Print Room',
+            },
+        });
+        if (data.humidity < 40 || data.humidity > 65 || data.temperature > 28) {
+            await this.dittofeedService.trackEvent('admin@eagledtfsupply.com', 'environmental_hazard_alert', {
+                humidity: data.humidity,
+                temperature: data.temperature,
+                location: log.location,
+                threshold: 'HUMIDITY_OUT_OF_BOUNDS',
+                recommendation: data.humidity < 40 ? 'Increase humidity to prevent head clogging.' : 'Lower humidity to prevent film oiliness.',
+            });
+        }
+        return log;
+    }
+    async recordMaintenance(data) {
+        const log = await this.prisma.printerMaintenanceLog.create({
+            data: {
+                printerId: data.printerId,
+                operatorName: data.operatorName,
+                maintenanceType: data.type,
+                notes: data.notes,
+            },
+        });
+        await this.prisma.printer.update({
+            where: { id: data.printerId },
+            data: { lastMaintenanceAt: new Date() },
+        });
+        return log;
+    }
+    async getMaintenanceHistory(printerId) {
+        return this.prisma.printerMaintenanceLog.findMany({
+            where: { printerId },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+        });
+    }
+    async getRollNestingProposal(merchantId, printableWidth = 22) {
+        const pendingJobs = await this.prisma.productionJob.findMany({
+            where: { merchantId, status: 'QUEUED', gangSheetBatchId: null },
+            orderBy: { priority: 'desc' },
+        });
+        if (pendingJobs.length === 0)
+            return null;
+        let totalLinearInches = 0;
+        const items = [];
+        for (const job of pendingJobs) {
+            if (job.widthInch <= printableWidth) {
+                totalLinearInches += job.heightInch + 1;
+                items.push(job);
+            }
+        }
+        return {
+            suggestedRollWidth: printableWidth + 2,
+            totalDesignCount: items.length,
+            requiredRollLengthInch: Math.ceil(totalLinearInches),
+            estimatedFilmCost: (totalLinearInches / 12) * 2.5,
+            jobIds: items.map(i => i.id),
+        };
+    }
+    async getPackagingStrategy(orderId) {
+        const jobs = await this.prisma.productionJob.findMany({
+            where: { orderId },
+        });
+        const hasLargeJob = jobs.some(j => (j.widthInch || 0) > 13 || (j.heightInch || 0) > 19);
+        const totalArea = jobs.reduce((sum, j) => sum + (j.areaSquareInch || 0), 0);
+        return {
+            orderId,
+            recommendedPackaging: hasLargeJob ? 'HEAVY_DUTY_ROLL_TUBE' : (totalArea > 500 ? 'LARGE_FLAT_MAILER' : 'SMALL_RIGID_ENVELOPE'),
+            shippingNote: hasLargeJob ? 'Roll with parchment paper inside.' : 'Ship flat with cardboard support.',
+            addSilicaPacket: true,
+            mandatoryInstructions: [
+                'Place silica gel packet inside the sleeve.',
+                'Ensure ink is 100% cured (not oily) before packing.',
+                'Seal with moisture-resistant tape.'
+            ]
+        };
+    }
 };
 exports.ProductionService = ProductionService;
+__decorate([
+    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_HOUR),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], ProductionService.prototype, "checkProductionSLAs", null);
 __decorate([
     (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_DAY_AT_MIDNIGHT),
     __metadata("design:type", Function),

@@ -80,13 +80,16 @@ export declare class FactoryFloorService {
             id: string;
             status: string;
         };
-        productionJobs: any;
-        movedToPrepress: any;
+        productionJobs: number;
+        movedToPrepress: number;
     }>;
     markOrderReady(orderId: string, merchantId: string): Promise<{
         success: boolean;
         message: string;
-        pendingJobs: any;
+        pendingJobs: {
+            id: string;
+            status: import("@prisma/client/client").$Enums.ProductionStatus;
+        }[];
         pickupOrderId?: undefined;
         qrCode?: undefined;
         shelf?: undefined;
@@ -134,11 +137,11 @@ export declare class FactoryFloorService {
     getDailySummary(merchantId: string): Promise<{
         date: string;
         ordersCreated: number;
-        jobsCompleted: any;
+        jobsCompleted: number;
         designsCreated: any;
         pickupsCompleted: any;
         sqftPrinted: number;
-        activeInPipeline: any;
+        activeInPipeline: number;
         readyForPickup: any;
     }>;
 }

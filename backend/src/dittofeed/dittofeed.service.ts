@@ -21,11 +21,13 @@ export type DittofeedEventName =
   | 'design_uploaded'
   | 'design_approved'
   | 'design_rejected'
+  | 'design_waiting_approval'
   | 'design_low_resolution'
   // Üretim Pipeline
   | 'production_started'
   | 'production_completed'
   | 'production_delayed'
+  | 'internal_sla_exceeded'
   // Pickup/Shipping
   | 'pickup_ready'
   | 'pickup_completed'

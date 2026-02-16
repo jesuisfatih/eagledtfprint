@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PickupModule = void 0;
 const common_1 = require("@nestjs/common");
+const dittofeed_module_1 = require("../dittofeed/dittofeed.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const pickup_controller_1 = require("./pickup.controller");
 const pickup_service_1 = require("./pickup.service");
@@ -16,7 +17,7 @@ let PickupModule = class PickupModule {
 exports.PickupModule = PickupModule;
 exports.PickupModule = PickupModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
+        imports: [prisma_module_1.PrismaModule, dittofeed_module_1.DittofeedModule],
         controllers: [pickup_controller_1.PickupController],
         providers: [pickup_service_1.PickupService],
         exports: [pickup_service_1.PickupService],

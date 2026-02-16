@@ -1,19 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { DittofeedService } from '../dittofeed/dittofeed.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Customer Intelligence Service — Ultra Deep v2.0
- * 50+ metrics: CLV, RFM, Health, Churn, Deep Behavioral Analysis,
- * Cohort Analysis, Monetary Momentum, Seasonal Patterns, Product Diversity,
- * Basket Analysis, Cross-Sell Affinity, Lifecycle Stage, Engagement Velocity,
- * Reactivation Potential, Day-Part Analysis, and more.
  */
 @Injectable()
 export class CustomerIntelligenceService {
   private readonly logger = new Logger(CustomerIntelligenceService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private dittofeed: DittofeedService,
+  ) {}
 
   // ===================================================
   // CALCULATE ALL INSIGHTS FOR A MERCHANT
@@ -969,5 +969,40 @@ export class CustomerIntelligenceService {
       take: limit,
       orderBy: { totalSpent: 'desc' },
     });
+  }
+
+  /**
+   * Dittofeed Sync Engine
+   * Hesaplanan metrikleri Dittofeed User Traits olarak gönderir.
+   */
+  async syncInsightsToDittofeed(merchantId: string) {
+    const customers = await this.prisma.shopifyCustomer.findMany({
+      where: { merchantId },
+      include: { insight: true },
+    });
+
+    let synced = 0;
+    for (const customer of customers) {
+      if (!customer.insight || !customer.email) continue;
+
+      try {
+        await this.dittofeed.identifyUser(customer.id, {
+          email: customer.email,
+          firstName: customer.firstName || undefined,
+          lastName: customer.lastName || undefined,
+          predicted_clv: Number(customer.insight.projectedClv || 0),
+          churn_risk_level: customer.insight.churnRisk || undefined,
+          rfm_segment: customer.insight.rfmSegment || undefined,
+          health_score: customer.insight.healthScore || undefined,
+          days_since_last_order: customer.insight.daysSinceLastOrder || undefined,
+          avg_order_interval_days: customer.insight.avgDaysBetweenOrders || undefined,
+        });
+        synced++;
+      } catch (err) {
+        this.logger.error(`Dittofeed sync error for ${customer.id}: ${err.message}`);
+      }
+    }
+
+    return { synced };
   }
 }

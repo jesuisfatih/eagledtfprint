@@ -124,7 +124,7 @@ export declare class CompanyIntelligenceService {
             revenue: number;
             orders: number;
         }[];
-        userActivity: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.VisitorSessionGroupByOutputType, "companyUserId"[]> & {
+        userActivity: (import("@prisma/client/client").Prisma.PickEnumerable<import("@prisma/client/client").Prisma.VisitorSessionGroupByOutputType, "companyUserId"[]> & {
             _count: number;
             _sum: {
                 pageViews: number | null;

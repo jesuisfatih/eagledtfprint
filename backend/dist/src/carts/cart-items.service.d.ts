@@ -59,5 +59,5 @@ export declare class CartItemsService {
         lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
         appliedPricingRuleId: string | null;
     }>;
-    clearCart(cartId: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    clearCart(cartId: string): Promise<import("@prisma/client/client").Prisma.BatchPayload>;
 }

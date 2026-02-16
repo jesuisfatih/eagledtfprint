@@ -21,5 +21,5 @@ export declare class DiscountEngineService {
         usageLimit: number | null;
         usedCount: number;
     } | null>;
-    markDiscountUsed(code: string): Promise<import("@prisma/client").Prisma.BatchPayload>;
+    markDiscountUsed(code: string): Promise<import("@prisma/client/client").Prisma.BatchPayload>;
 }
