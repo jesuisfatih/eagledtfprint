@@ -147,6 +147,7 @@ export class OrdersHandler {
           await this.dittofeedService.trackOrderPlaced({
             userId: companyUserId,
             orderId: orderLocal.id,
+            merchantId: merchant.id,
             orderNumber: orderData.order_number?.toString() || '',
             totalPrice: parseFloat(orderData.total_price || '0'),
             financialStatus: orderData.financial_status || '',
@@ -329,11 +330,17 @@ export class OrdersHandler {
             // Check if this update is a fulfillment
             if (orderData.fulfillment_status === 'fulfilled' && fulfillments.length > 0) {
               const latestFulfillment = fulfillments[fulfillments.length - 1];
-              await this.dittofeedService.trackOrderFulfilled(user.id, orderData.id?.toString() || '', orderData.order_number?.toString() || '', {
-                trackingNumber: latestFulfillment.trackingNumber,
-                trackingUrl: latestFulfillment.trackingUrl,
-                carrier: latestFulfillment.trackingCompany,
-              });
+              await this.dittofeedService.trackOrderFulfilled(
+                user.id,
+                orderData.id?.toString() || '',
+                orderData.order_number?.toString() || '',
+                merchant.id,
+                {
+                  trackingNumber: latestFulfillment.trackingNumber,
+                  trackingUrl: latestFulfillment.trackingUrl,
+                  carrier: latestFulfillment.trackingCompany,
+                }
+              );
             }
 
             // Check if order was cancelled
