@@ -55,9 +55,12 @@ jobs:
           script: |
             set -e
 
-            # Pull image from GHCR (public package)
+            # Login to GHCR
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u jesuisfatih --password-stdin
+
+            # Pull image from GHCR
             docker pull ghcr.io/jesuisfatih/eagledtfprint-app:latest || {
-              echo "Pull failed - checking if image needs login"
+              echo "Pull failed"
               exit 1
             }
 
