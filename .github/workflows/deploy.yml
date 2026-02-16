@@ -52,11 +52,12 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: GHCR_TOKEN
           script: |
             set -e
 
             # Login to GHCR
-            docker login ghcr.io -u jesuisfatih -p ${{ secrets.GHCR_TOKEN }}
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u jesuisfatih --password-stdin
 
             # Pull image from GHCR
             docker pull ghcr.io/jesuisfatih/eagledtfprint-app:latest || {
