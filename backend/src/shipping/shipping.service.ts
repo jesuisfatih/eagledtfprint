@@ -655,4 +655,42 @@ export class ShippingService {
       this.logger.error(`Stale pickup check failed: ${err.message}`);
     }
   }
+
+  async getPendingOrders(merchantId: string) {
+    const orders = await this.prisma.orderLocal.findMany({
+      where: {
+        merchantId,
+        fulfillmentStatus: { in: ['READY_TO_SHIP', 'READY_FOR_PICKUP'] },
+      },
+      select: {
+        id: true,
+        shopifyOrderNumber: true,
+        email: true,
+        customerName: true,
+        shippingAddress: true,
+        fulfillmentStatus: true,
+        lineItems: true,
+        shippingTrackingNumber: true,
+        shippingLabelUrl: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return orders.map(o => {
+      const addr = o.shippingAddress as any || {};
+      return {
+        id: o.id,
+        shopifyOrderNumber: o.shopifyOrderNumber,
+        customerName: o.customerName || o.email,
+        address: addr.address1 || '',
+        city: addr.city || '',
+        state: addr.province_code || addr.province || '',
+        zip: addr.zip || '',
+        totalItems: Array.isArray(o.lineItems) ? o.lineItems.length : 0,
+        status: o.fulfillmentStatus,
+        trackingNumber: o.shippingTrackingNumber,
+        labelUrl: o.shippingLabelUrl,
+      };
+    });
+  }
 }

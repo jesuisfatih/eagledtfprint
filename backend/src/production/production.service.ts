@@ -79,6 +79,10 @@ export interface KanbanBoard {
   QC_CHECK: any[];
   PACKAGING: any[];
   READY: any[];
+  PICKED_UP: any[];
+  SHIPPED: any[];
+  COMPLETED: any[];
+  CANCELLED: any[];
 }
 
 export interface ProductionStats {
@@ -288,6 +292,7 @@ export class ProductionService {
     const activeStatuses = [
       'QUEUED', 'PREPRESS', 'PRINTING', 'CURING',
       'CUTTING', 'QC_CHECK', 'PACKAGING', 'READY',
+      'PICKED_UP', 'SHIPPED', 'COMPLETED', 'CANCELLED',
     ];
 
     const jobs = await this.prisma.productionJob.findMany({
@@ -321,6 +326,10 @@ export class ProductionService {
       QC_CHECK: [],
       PACKAGING: [],
       READY: [],
+      PICKED_UP: [],
+      SHIPPED: [],
+      COMPLETED: [],
+      CANCELLED: [],
     };
 
     for (const job of jobs) {

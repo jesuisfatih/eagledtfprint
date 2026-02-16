@@ -39,6 +39,15 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    label: 'Production & Logistics',
+    items: [
+      { title: 'Production Kanban', icon: 'ti-layout-kanban', href: '/production' },
+      { title: 'Shipping & Labels', icon: 'ti-truck-delivery', href: '/shipping' },
+      { title: 'Design Projects', icon: 'ti-palette', href: '/designs' },
+      { title: 'Printers', icon: 'ti-printer', href: '/printers' },
+    ],
+  },
+  {
     label: 'Catalog',
     items: [
       { title: 'Products', icon: 'ti-package', href: '/catalog' },
@@ -51,6 +60,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Segments', icon: 'ti-filter', href: '/segments' },
       { title: 'Campaigns', icon: 'ti-speakerphone', href: '/campaigns' },
       { title: 'Data Sync', icon: 'ti-refresh', href: '/data-sync' },
+      { title: 'Multi-Store', icon: 'ti-building-store', href: '/multi-store' },
     ],
   },
   {

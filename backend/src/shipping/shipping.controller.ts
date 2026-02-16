@@ -18,6 +18,12 @@ import { ShippingService } from './shipping.service';
 export class ShippingController {
   constructor(private readonly shippingService: ShippingService) {}
 
+  /** Get pending shipping orders */
+  @Get('pending')
+  async getPending(@CurrentUser('merchantId') merchantId: string) {
+    return this.shippingService.getPendingOrders(merchantId);
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // RATES & LABELS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
