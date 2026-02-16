@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { DittofeedModule } from '../dittofeed/dittofeed.module';
 import { PenpotModule } from '../penpot/penpot.module';
 import { PickupModule } from '../pickup/pickup.module';
@@ -10,7 +10,7 @@ import { ProductionGateway } from './production.gateway';
 import { ProductionService } from './production.service';
 
 @Module({
-  imports: [PrismaModule, DittofeedModule, PenpotModule, PickupModule],
+  imports: [PrismaModule, DittofeedModule, forwardRef(() => PenpotModule), PickupModule],
   controllers: [ProductionController, FactoryFloorController],
   providers: [ProductionService, ProductionGateway, FactoryFloorService],
   exports: [ProductionService, ProductionGateway, FactoryFloorService],
