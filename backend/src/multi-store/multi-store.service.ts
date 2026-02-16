@@ -132,8 +132,7 @@ export class MultiStoreService {
     const merchants = await this.prisma.merchant.findMany({
       select: {
         id: true,
-        shopName: true,
-        myshopifyDomain: true,
+        shopDomain: true,
       },
     });
 
@@ -180,8 +179,8 @@ export class MultiStoreService {
 
         return {
           merchantId: merchant.id,
-          storeName: merchant.shopName || merchant.myshopifyDomain || 'Unknown',
-          domain: merchant.myshopifyDomain || '',
+          storeName: merchant.shopDomain || 'Unknown',
+          domain: merchant.shopDomain || '',
           totalRevenue: Number(revenue._sum.totalPrice || 0),
           totalOrders: orders,
           totalCustomers: customers,
@@ -216,7 +215,7 @@ export class MultiStoreService {
   /** Birden fazla store'da sipariş veren müşteri sayısı */
   private async getCrossStoreCustomerCount(): Promise<number> {
     try {
-      const result = await this.prisma.$queryRaw<[{ count: bigint }]>`
+      const result = await this.prisma.$queryRaw`
         SELECT COUNT(*) AS count FROM (
           SELECT email
           FROM shopify_customers
@@ -224,7 +223,7 @@ export class MultiStoreService {
           GROUP BY email
           HAVING COUNT(DISTINCT merchant_id) > 1
         ) multi_store_customers
-      `;
+      ` as [{ count: bigint }];
       return Number(result[0]?.count || 0);
     } catch {
       return 0;
@@ -243,7 +242,7 @@ export class MultiStoreService {
     const merchants = await this.prisma.merchant.findMany({
       select: {
         id: true,
-        shopName: true,
+        shopDomain: true,
       },
     });
 
@@ -278,7 +277,7 @@ export class MultiStoreService {
 
         return {
           merchantId: merchant.id,
-          storeName: merchant.shopName || 'Unknown',
+          storeName: merchant.shopDomain || 'Unknown',
           queuedJobs,
           printingJobs,
           totalActive,
@@ -325,10 +324,10 @@ export class MultiStoreService {
     // Default config — can be enriched from settings table
     return {
       merchantId: merchant.id,
-      storeName: merchant.shopName || 'DTF Store',
-      domain: merchant.myshopifyDomain || '',
+      storeName: merchant.shopDomain || 'DTF Store',
+      domain: merchant.shopDomain || '',
       brandColor: '#2563eb', // Default blue — configurable
-      defaultFromEmail: `orders@${merchant.myshopifyDomain || 'eagledtfprint.com'}`,
+      defaultFromEmail: `orders@${merchant.shopDomain || 'eagledtfprint.com'}`,
       features: {
         pickup: true,
         gangSheet: true,
@@ -343,13 +342,12 @@ export class MultiStoreService {
     const merchants = await this.prisma.merchant.findMany({
       select: {
         id: true,
-        shopName: true,
-        myshopifyDomain: true,
+        shopDomain: true,
         createdAt: true,
         _count: {
           select: {
-            ordersLocal: true,
-            shopifyCustomers: true,
+            orders: true,
+            customers: true,
           },
         },
       },
@@ -357,11 +355,11 @@ export class MultiStoreService {
 
     return merchants.map((m) => ({
       merchantId: m.id,
-      shopName: m.shopName,
-      domain: m.myshopifyDomain,
+      shopName: m.shopDomain,
+      domain: m.shopDomain,
       createdAt: m.createdAt,
-      totalOrders: m._count.ordersLocal,
-      totalCustomers: m._count.shopifyCustomers,
+      totalOrders: m._count.orders,
+      totalCustomers: m._count.customers,
     }));
   }
 
@@ -372,15 +370,7 @@ export class MultiStoreService {
   /** Birden fazla store'da sipariş veren müşterilerin detayları */
   async getCrossStoreCustomers(limit: number = 50) {
     try {
-      const results = await this.prisma.$queryRaw<
-        Array<{
-          email: string;
-          store_count: bigint;
-          total_orders: bigint;
-          total_spent: number;
-          stores: string;
-        }>
-      >`
+      const results = await this.prisma.$queryRaw`
         SELECT
           sc.email,
           COUNT(DISTINCT sc.merchant_id) AS store_count,
@@ -396,7 +386,13 @@ export class MultiStoreService {
         HAVING COUNT(DISTINCT sc.merchant_id) > 1
         ORDER BY total_spent DESC
         LIMIT ${limit}
-      `;
+      ` as Array<{
+        email: string;
+        store_count: bigint;
+        total_orders: bigint;
+        total_spent: number;
+        stores: string;
+      }>;
 
       return results.map((r) => ({
         email: r.email,
