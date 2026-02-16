@@ -42,13 +42,16 @@ let EventsController = class EventsController {
         return this.eventsService.getAnalytics(merchantId, dateRange);
     }
     async getAdminActivity(merchantId, limit) {
-        return this.eventsService.getAdminActivityFeed(merchantId, limit ? parseInt(limit) : 50);
+        const parsedLimit = limit ? parseInt(limit, 10) : 50;
+        return this.eventsService.getAdminActivityFeed(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 50);
     }
     async getWebhookActivity(merchantId, limit) {
-        return this.eventsService.getWebhookActivityFeed(merchantId, limit ? parseInt(limit) : 100);
+        const parsedLimit = limit ? parseInt(limit, 10) : 100;
+        return this.eventsService.getWebhookActivityFeed(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 100);
     }
     async getSessionActivity(merchantId, limit) {
-        return this.eventsService.getSessionActivityFeed(merchantId, limit ? parseInt(limit) : 50);
+        const parsedLimit = limit ? parseInt(limit, 10) : 50;
+        return this.eventsService.getSessionActivityFeed(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 50);
     }
 };
 exports.EventsController = EventsController;

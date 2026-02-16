@@ -8,12 +8,6 @@ export declare class AbandonedCartsService {
             name: string;
             id: string;
         };
-        createdBy: {
-            id: string;
-            email: string;
-            firstName: string | null;
-            lastName: string | null;
-        };
         items: ({
             variant: ({
                 product: {
@@ -24,15 +18,29 @@ export declare class AbandonedCartsService {
                     merchantId: string;
                     tags: string | null;
                     rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                    metafields: import("@prisma/client/runtime/client").JsonValue | null;
                     syncedAt: Date;
                     shopifyProductId: bigint;
                     title: string | null;
                     handle: string | null;
                     description: string | null;
+                    descriptionHtml: string | null;
                     vendor: string | null;
                     productType: string | null;
                     images: import("@prisma/client/runtime/client").JsonValue | null;
                     collections: import("@prisma/client/runtime/client").JsonValue | null;
+                    seoTitle: string | null;
+                    seoDescription: string | null;
+                    options: import("@prisma/client/runtime/client").JsonValue | null;
+                    media: import("@prisma/client/runtime/client").JsonValue | null;
+                    templateSuffix: string | null;
+                    publishedAt: Date | null;
+                    onlineStoreUrl: string | null;
+                    totalInventory: number | null;
+                    hasOnlyDefaultVariant: boolean | null;
+                    requiresSellingPlan: boolean | null;
+                    reviewsAvgRating: import("@prisma/client-runtime-utils").Decimal | null;
+                    reviewsCount: number | null;
                 };
             } & {
                 id: string;
@@ -44,6 +52,7 @@ export declare class AbandonedCartsService {
                 productId: string;
                 shopifyVariantId: bigint;
                 sku: string | null;
+                barcode: string | null;
                 price: import("@prisma/client-runtime-utils").Decimal | null;
                 compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
                 inventoryQuantity: number | null;
@@ -52,6 +61,12 @@ export declare class AbandonedCartsService {
                 option1: string | null;
                 option2: string | null;
                 option3: string | null;
+                imageUrl: string | null;
+                position: number | null;
+                taxable: boolean | null;
+                requiresShipping: boolean | null;
+                availableForSale: boolean | null;
+                inventoryPolicy: string | null;
             }) | null;
         } & {
             id: string;
@@ -72,15 +87,22 @@ export declare class AbandonedCartsService {
             lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
             appliedPricingRuleId: string | null;
         })[];
+        createdBy: {
+            id: string;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+        };
     } & {
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -92,7 +114,6 @@ export declare class AbandonedCartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     getCartActivityLogs(cartId: string): Promise<{
@@ -144,9 +165,10 @@ export declare class AbandonedCartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -158,7 +180,6 @@ export declare class AbandonedCartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     private logCartActivity;
@@ -168,9 +189,10 @@ export declare class AbandonedCartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -182,7 +204,6 @@ export declare class AbandonedCartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     markAsRestored(cartId: string, merchantId: string): Promise<{

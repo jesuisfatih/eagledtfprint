@@ -1,15 +1,15 @@
-import type { Response, Request } from 'express';
-import { AuthService } from './auth.service';
-import { SessionSyncService } from './session-sync.service';
-import { LoginSecurityService } from './login-security.service';
-import { ShopifySsoService } from '../shopify/shopify-sso.service';
-import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
-import { ShopifyRestService } from '../shopify/shopify-rest.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { ShopifyOauthService } from './shopify-oauth.service';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AdminLoginDto, LoginDto, RegisterDto, AcceptInvitationDto, SendVerificationCodeDto, VerifyEmailCodeDto, ShopifyCustomerSyncDto, PasswordResetRequestDto, PasswordResetDto } from './dto/auth.dto';
+import type { Request, Response } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
+import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
+import { ShopifyRestService } from '../shopify/shopify-rest.service';
+import { ShopifySsoService } from '../shopify/shopify-sso.service';
+import { AuthService } from './auth.service';
+import { AcceptInvitationDto, AdminLoginDto, LoginDto, PasswordResetDto, PasswordResetRequestDto, RegisterDto, SendVerificationCodeDto, ShopifyCustomerSyncDto, VerifyEmailCodeDto } from './dto/auth.dto';
+import { LoginSecurityService } from './login-security.service';
+import { SessionSyncService } from './session-sync.service';
+import { ShopifyOauthService } from './shopify-oauth.service';
 export declare class AuthController {
     private authService;
     private sessionSyncService;
@@ -23,10 +23,18 @@ export declare class AuthController {
     private jwtService;
     private readonly logger;
     private readonly adminUrl;
+    private readonly envAdminUsername;
+    private readonly envAdminPassword;
     constructor(authService: AuthService, sessionSyncService: SessionSyncService, loginSecurity: LoginSecurityService, shopifySso: ShopifySsoService, shopifyCustomerSync: ShopifyCustomerSyncService, shopifyRest: ShopifyRestService, prisma: PrismaService, shopifyOauth: ShopifyOauthService, config: ConfigService, jwtService: JwtService);
-    private readonly adminUsername;
-    private readonly adminPassword;
+    private hashPassword;
+    private verifyPassword;
     adminLogin(dto: AdminLoginDto, res: Response): Promise<Response<any, Record<string, any>>>;
+    updateAdminCredentials(body: {
+        currentPassword: string;
+        newEmail?: string;
+        newPassword?: string;
+    }, merchantId: string, res: Response): Promise<Response<any, Record<string, any>>>;
+    getAdminCredentials(merchantId: string, res: Response): Promise<Response<any, Record<string, any>>>;
     login(dto: LoginDto, req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     shopifyCallback(shopifyCustomerId: string, email: string, res: Response): Promise<void>;
     validateInvitation(token: string, res: Response): Promise<Response<any, Record<string, any>>>;
@@ -120,7 +128,7 @@ export declare class AuthController {
     }, res: Response): Promise<Response<any, Record<string, any>>>;
     getCurrentUser(token: string, res: Response): Promise<Response<any, Record<string, any>>>;
     shopifyInstall(shop: string, res: Response): Promise<void | Response<any, Record<string, any>>>;
-    shopifyOauthCallback(code: string, shop: string, hmac: string, timestamp: string, state: string, res: Response): Promise<void>;
+    shopifyOauthCallback(query: Record<string, string>, res: Response): Promise<void>;
     getPasswordPolicy(): Promise<{
         success: boolean;
         policy: import("./login-security.service").PasswordPolicy;

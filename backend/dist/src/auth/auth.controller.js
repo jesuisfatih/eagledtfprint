@@ -15,21 +15,22 @@ var AuthController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
-const throttler_1 = require("@nestjs/throttler");
-const auth_service_1 = require("./auth.service");
-const session_sync_service_1 = require("./session-sync.service");
-const login_security_service_1 = require("./login-security.service");
-const public_decorator_1 = require("./decorators/public.decorator");
-const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
-const current_user_decorator_1 = require("./decorators/current-user.decorator");
-const shopify_sso_service_1 = require("../shopify/shopify-sso.service");
-const shopify_customer_sync_service_1 = require("../shopify/shopify-customer-sync.service");
-const shopify_rest_service_1 = require("../shopify/shopify-rest.service");
-const prisma_service_1 = require("../prisma/prisma.service");
-const shopify_oauth_service_1 = require("./shopify-oauth.service");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
+const throttler_1 = require("@nestjs/throttler");
+const crypto_1 = require("crypto");
+const prisma_service_1 = require("../prisma/prisma.service");
+const shopify_customer_sync_service_1 = require("../shopify/shopify-customer-sync.service");
+const shopify_rest_service_1 = require("../shopify/shopify-rest.service");
+const shopify_sso_service_1 = require("../shopify/shopify-sso.service");
+const auth_service_1 = require("./auth.service");
+const current_user_decorator_1 = require("./decorators/current-user.decorator");
+const public_decorator_1 = require("./decorators/public.decorator");
 const auth_dto_1 = require("./dto/auth.dto");
+const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
+const login_security_service_1 = require("./login-security.service");
+const session_sync_service_1 = require("./session-sync.service");
+const shopify_oauth_service_1 = require("./shopify-oauth.service");
 let AuthController = AuthController_1 = class AuthController {
     authService;
     sessionSyncService;
@@ -43,6 +44,8 @@ let AuthController = AuthController_1 = class AuthController {
     jwtService;
     logger = new common_1.Logger(AuthController_1.name);
     adminUrl;
+    envAdminUsername;
+    envAdminPassword;
     constructor(authService, sessionSyncService, loginSecurity, shopifySso, shopifyCustomerSync, shopifyRest, prisma, shopifyOauth, config, jwtService) {
         this.authService = authService;
         this.sessionSyncService = sessionSyncService;
@@ -54,26 +57,66 @@ let AuthController = AuthController_1 = class AuthController {
         this.shopifyOauth = shopifyOauth;
         this.config = config;
         this.jwtService = jwtService;
-        this.adminUrl = this.config.get('ADMIN_URL', 'https://admin.eagledtfsupply.com');
-        this.adminUsername = this.config.get('ADMIN_USERNAME', 'admin');
-        this.adminPassword = this.config.get('ADMIN_PASSWORD', 'eagle2025');
+        this.adminUrl = this.config.get('ADMIN_URL', '');
+        this.envAdminUsername = this.config.get('ADMIN_USERNAME', 'admin');
+        this.envAdminPassword = this.config.get('ADMIN_PASSWORD', 'eagle2025');
     }
-    adminUsername;
-    adminPassword;
+    hashPassword(password) {
+        const salt = (0, crypto_1.randomBytes)(16).toString('hex');
+        const hash = (0, crypto_1.pbkdf2Sync)(password, salt, 100000, 64, 'sha512').toString('hex');
+        return `${salt}:${hash}`;
+    }
+    verifyPassword(password, storedHash) {
+        const [salt, hash] = storedHash.split(':');
+        if (!salt || !hash)
+            return false;
+        const verify = (0, crypto_1.pbkdf2Sync)(password, salt, 100000, 64, 'sha512').toString('hex');
+        return hash === verify;
+    }
     async adminLogin(dto, res) {
         try {
-            if (dto.username !== this.adminUsername || dto.password !== this.adminPassword) {
-                return res.status(common_1.HttpStatus.UNAUTHORIZED).json({
-                    message: 'Invalid credentials',
-                });
-            }
             const merchant = await this.prisma.merchant.findFirst({
                 where: { status: 'active' },
             });
             if (!merchant) {
                 return res.status(common_1.HttpStatus.NOT_FOUND).json({
-                    message: 'No merchant configured',
+                    message: 'No merchant configured. Please install the Shopify app first.',
                 });
+            }
+            const settings = merchant.settings || {};
+            const dbAdminEmail = settings.adminEmail;
+            const dbAdminPasswordHash = settings.adminPasswordHash;
+            let credentialsValid = false;
+            let shouldPersistToDB = false;
+            if (dbAdminEmail && dbAdminPasswordHash) {
+                credentialsValid = dto.username === dbAdminEmail &&
+                    this.verifyPassword(dto.password, dbAdminPasswordHash);
+            }
+            else {
+                credentialsValid = dto.username === this.envAdminUsername &&
+                    dto.password === this.envAdminPassword;
+                if (credentialsValid) {
+                    shouldPersistToDB = true;
+                }
+            }
+            if (!credentialsValid) {
+                return res.status(common_1.HttpStatus.UNAUTHORIZED).json({
+                    message: 'Invalid credentials',
+                });
+            }
+            if (shouldPersistToDB) {
+                try {
+                    const hash = this.hashPassword(this.envAdminPassword);
+                    const updatedSettings = { ...settings, adminEmail: this.envAdminUsername, adminPasswordHash: hash };
+                    await this.prisma.merchant.update({
+                        where: { id: merchant.id },
+                        data: { settings: updatedSettings },
+                    });
+                    this.logger.log('🔑 [ADMIN_LOGIN] Admin credentials persisted to DB from env');
+                }
+                catch (persistErr) {
+                    this.logger.warn(`⚠️ Could not persist admin creds to DB: ${persistErr.message}`);
+                }
             }
             const payload = {
                 sub: merchant.id,
@@ -94,6 +137,58 @@ let AuthController = AuthController_1 = class AuthController {
             return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({
                 message: 'Login failed',
             });
+        }
+    }
+    async updateAdminCredentials(body, merchantId, res) {
+        try {
+            if (!merchantId) {
+                return res.status(common_1.HttpStatus.BAD_REQUEST).json({ message: 'Merchant ID required' });
+            }
+            const merchant = await this.prisma.merchant.findUnique({ where: { id: merchantId } });
+            if (!merchant) {
+                return res.status(common_1.HttpStatus.NOT_FOUND).json({ message: 'Merchant not found' });
+            }
+            const settings = merchant.settings || {};
+            const dbAdminEmail = settings.adminEmail;
+            const dbAdminPasswordHash = settings.adminPasswordHash;
+            let currentPasswordValid = false;
+            if (dbAdminPasswordHash) {
+                currentPasswordValid = this.verifyPassword(body.currentPassword, dbAdminPasswordHash);
+            }
+            else {
+                currentPasswordValid = body.currentPassword === this.envAdminPassword;
+            }
+            if (!currentPasswordValid) {
+                return res.status(common_1.HttpStatus.UNAUTHORIZED).json({ message: 'Current password is incorrect' });
+            }
+            const newEmail = body.newEmail || dbAdminEmail || this.envAdminUsername;
+            const newHash = body.newPassword
+                ? this.hashPassword(body.newPassword)
+                : dbAdminPasswordHash || this.hashPassword(this.envAdminPassword);
+            const updatedSettings = { ...settings, adminEmail: newEmail, adminPasswordHash: newHash };
+            await this.prisma.merchant.update({
+                where: { id: merchantId },
+                data: { settings: updatedSettings },
+            });
+            this.logger.log(`🔑 [ADMIN_CREDS] Admin credentials updated for merchant ${merchantId}`);
+            return res.json({ success: true, message: 'Admin credentials updated successfully', adminEmail: newEmail });
+        }
+        catch (error) {
+            this.logger.error(`❌ [ADMIN_CREDS] Failed: ${error.message}`);
+            return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to update credentials' });
+        }
+    }
+    async getAdminCredentials(merchantId, res) {
+        try {
+            const merchant = await this.prisma.merchant.findUnique({ where: { id: merchantId } });
+            if (!merchant) {
+                return res.status(common_1.HttpStatus.NOT_FOUND).json({ message: 'Merchant not found' });
+            }
+            const settings = merchant.settings || {};
+            return res.json({ adminEmail: settings.adminEmail || this.envAdminUsername });
+        }
+        catch (error) {
+            return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to get credentials' });
         }
     }
     async login(dto, req, res) {
@@ -159,13 +254,13 @@ let AuthController = AuthController_1 = class AuthController {
                     shopifyCustomerId,
                 });
                 const token = await this.authService.generateToken(newUser);
-                return res.redirect(`https://accounts.eagledtfsupply.com/login?token=${token}&auto=true`);
+                return res.redirect(`${this.config.get('ACCOUNTS_URL')}/login?token=${token}&auto=true`);
             }
             const token = await this.authService.generateToken(user);
-            return res.redirect(`https://accounts.eagledtfsupply.com/login?token=${token}&auto=true`);
+            return res.redirect(`${this.config.get('ACCOUNTS_URL')}/login?token=${token}&auto=true`);
         }
         catch (error) {
-            return res.redirect('https://accounts.eagledtfsupply.com/login?error=shopify_auth_failed');
+            return res.redirect(`${this.config.get('ACCOUNTS_URL')}/login?error=shopify_auth_failed`);
         }
     }
     async validateInvitation(token, res) {
@@ -514,16 +609,11 @@ let AuthController = AuthController_1 = class AuthController {
             return res.redirect(`${this.adminUrl}/login?error=oauth_install_failed`);
         }
     }
-    async shopifyOauthCallback(code, shop, hmac, timestamp, state, res) {
+    async shopifyOauthCallback(query, res) {
+        const shop = query.shop;
         try {
-            this.logger.log(`🔐 [OAUTH] Callback received for shop: ${shop}`);
-            const result = await this.shopifyOauth.handleCallback({
-                code,
-                shop,
-                hmac,
-                timestamp,
-                state,
-            });
+            this.logger.log(`🔐 [OAUTH] Callback received for shop: ${shop}, params: ${Object.keys(query).join(',')}`);
+            const result = await this.shopifyOauth.handleCallback(query);
             this.logger.log(`✅ [OAUTH] OAuth successful for merchant: ${result.merchant.id}`);
             return res.redirect(`${this.adminUrl}/login?token=${result.accessToken}&shop=${shop}`);
         }
@@ -565,6 +655,25 @@ __decorate([
     __metadata("design:paramtypes", [auth_dto_1.AdminLoginDto, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "adminLogin", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Put)('admin-credentials'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "updateAdminCredentials", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Get)('admin-credentials'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "getAdminCredentials", null);
 __decorate([
     (0, public_decorator_1.Public)(),
     (0, throttler_1.Throttle)({ short: { limit: 5, ttl: 60000 } }),
@@ -735,14 +844,10 @@ __decorate([
 __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)('shopify/callback'),
-    __param(0, (0, common_1.Query)('code')),
-    __param(1, (0, common_1.Query)('shop')),
-    __param(2, (0, common_1.Query)('hmac')),
-    __param(3, (0, common_1.Query)('timestamp')),
-    __param(4, (0, common_1.Query)('state')),
-    __param(5, (0, common_1.Res)()),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "shopifyOauthCallback", null);
 __decorate([

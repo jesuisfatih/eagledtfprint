@@ -14,19 +14,19 @@ exports.OrdersSyncWorker = void 0;
 const bull_1 = require("@nestjs/bull");
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
-const shopify_rest_service_1 = require("../../shopify/shopify-rest.service");
+const shopify_graphql_service_1 = require("../../shopify/shopify-graphql.service");
 const shopify_service_1 = require("../../shopify/shopify.service");
 const sync_state_service_1 = require("../sync-state.service");
 let OrdersSyncWorker = OrdersSyncWorker_1 = class OrdersSyncWorker {
     prisma;
     shopifyService;
-    shopifyRest;
+    shopifyGraphql;
     syncState;
     logger = new common_1.Logger(OrdersSyncWorker_1.name);
-    constructor(prisma, shopifyService, shopifyRest, syncState) {
+    constructor(prisma, shopifyService, shopifyGraphql, syncState) {
         this.prisma = prisma;
         this.shopifyService = shopifyService;
-        this.shopifyRest = shopifyRest;
+        this.shopifyGraphql = shopifyGraphql;
         this.syncState = syncState;
     }
     async handleSync(job) {
@@ -45,86 +45,147 @@ let OrdersSyncWorker = OrdersSyncWorker_1 = class OrdersSyncWorker {
                 throw new Error('Merchant not found');
             }
             const state = await this.syncState.getState(merchantId, 'orders');
-            const sinceId = isInitial ? undefined : state.lastSyncedId;
-            let path = `/orders.json?limit=250&status=any`;
-            if (sinceId) {
-                path += `&since_id=${sinceId.toString()}`;
-            }
-            const result = await this.shopifyRest.get(merchant.shopDomain, merchant.accessToken, path);
-            const orders = result.orders || [];
+            let cursor = isInitial ? undefined : (state.lastCursor || undefined);
+            let hasNextPage = true;
             let processed = 0;
-            let maxOrderId = null;
-            for (const order of orders) {
-                const orderId = BigInt(order.id);
-                if (!maxOrderId || orderId > maxOrderId) {
-                    maxOrderId = orderId;
-                }
-                let companyId;
-                let companyUserId;
-                if (order.customer?.id) {
-                    const companyUser = await this.prisma.companyUser.findFirst({
+            let lastCursor = null;
+            while (hasNextPage) {
+                const result = await this.shopifyGraphql.getOrders(merchant.shopDomain, merchant.accessToken, 50, cursor);
+                const orders = result.orders.edges;
+                for (const edge of orders) {
+                    const order = edge.node;
+                    let companyId = null;
+                    let companyUserId = null;
+                    if (order.customer?.legacyResourceId) {
+                        const user = await this.prisma.companyUser.findFirst({
+                            where: { shopifyCustomerId: BigInt(order.customer.legacyResourceId) },
+                        });
+                        if (user) {
+                            companyUserId = user.id;
+                            companyId = user.companyId;
+                        }
+                    }
+                    const lineItems = order.lineItems?.edges?.map((e) => ({
+                        title: e.node.title,
+                        quantity: e.node.quantity,
+                        sku: e.node.variant?.sku,
+                        variant_id: e.node.variant?.legacyResourceId,
+                        variant_title: e.node.variant?.title,
+                        price: e.node.originalTotalSet?.shopMoney?.amount,
+                        discounted_price: e.node.discountedTotalSet?.shopMoney?.amount,
+                        product_id: e.node.variant?.product?.legacyResourceId,
+                        product_title: e.node.variant?.product?.title,
+                        product_handle: e.node.variant?.product?.handle,
+                        image_url: e.node.image?.url || e.node.variant?.image?.url || null,
+                        properties: (e.node.customAttributes || []).map((a) => ({
+                            name: a.key,
+                            value: a.value,
+                        })),
+                    })) || [];
+                    const shippingLine = order.shippingLine;
+                    const isPickup = shippingLine
+                        ? (shippingLine.title || '').toLowerCase().includes('pickup') ||
+                            (shippingLine.code || '').toLowerCase().includes('pickup')
+                        : false;
+                    const orderAttributes = order.customAttributes || [];
+                    const shippingAddress = order.shippingAddress ? {
+                        first_name: order.shippingAddress.firstName,
+                        last_name: order.shippingAddress.lastName,
+                        address1: order.shippingAddress.address1,
+                        address2: order.shippingAddress.address2,
+                        city: order.shippingAddress.city,
+                        province: order.shippingAddress.province,
+                        country: order.shippingAddress.country,
+                        zip: order.shippingAddress.zip,
+                        phone: order.shippingAddress.phone,
+                        company: order.shippingAddress.company,
+                    } : null;
+                    const billingAddress = order.billingAddress ? {
+                        first_name: order.billingAddress.firstName,
+                        last_name: order.billingAddress.lastName,
+                        address1: order.billingAddress.address1,
+                        address2: order.billingAddress.address2,
+                        city: order.billingAddress.city,
+                        province: order.billingAddress.province,
+                        country: order.billingAddress.country,
+                        zip: order.billingAddress.zip,
+                        phone: order.billingAddress.phone,
+                        company: order.billingAddress.company,
+                    } : null;
+                    await this.prisma.orderLocal.upsert({
                         where: {
-                            shopifyCustomerId: BigInt(order.customer.id),
+                            merchantId_shopifyOrderId: {
+                                merchantId,
+                                shopifyOrderId: BigInt(order.legacyResourceId),
+                            },
+                        },
+                        create: {
+                            merchantId,
+                            shopifyOrderId: BigInt(order.legacyResourceId),
+                            shopifyOrderNumber: order.name?.replace('#', ''),
+                            shopifyCustomerId: order.customer?.legacyResourceId ? BigInt(order.customer.legacyResourceId) : null,
+                            companyId,
+                            companyUserId,
+                            email: order.email,
+                            phone: order.phone,
+                            subtotal: parseFloat(order.subtotalPriceSet?.shopMoney?.amount || '0'),
+                            totalDiscounts: parseFloat(order.totalDiscountsSet?.shopMoney?.amount || '0'),
+                            totalTax: parseFloat(order.totalTaxSet?.shopMoney?.amount || '0'),
+                            totalPrice: parseFloat(order.totalPriceSet?.shopMoney?.amount || '0'),
+                            totalShipping: parseFloat(order.totalShippingPriceSet?.shopMoney?.amount || '0'),
+                            totalRefunded: order.totalRefundedSet?.shopMoney?.amount ? parseFloat(order.totalRefundedSet.shopMoney.amount) : null,
+                            currency: order.currencyCode,
+                            financialStatus: order.displayFinancialStatus?.toLowerCase(),
+                            fulfillmentStatus: order.displayFulfillmentStatus?.toLowerCase(),
+                            notes: order.note,
+                            tags: order.tags?.join(', '),
+                            riskLevel: order.riskLevel?.toLowerCase() || 'low',
+                            lineItems,
+                            shippingAddress: shippingAddress,
+                            billingAddress: billingAddress,
+                            discountCodes: order.discountCodes || [],
+                            processedAt: order.processedAt ? new Date(order.processedAt) : null,
+                            cancelledAt: order.cancelledAt ? new Date(order.cancelledAt) : null,
+                            closedAt: order.closedAt ? new Date(order.closedAt) : null,
+                            rawData: order,
+                        },
+                        update: {
+                            shopifyOrderNumber: order.name?.replace('#', ''),
+                            shopifyCustomerId: order.customer?.legacyResourceId ? BigInt(order.customer.legacyResourceId) : null,
+                            companyId,
+                            companyUserId,
+                            email: order.email,
+                            phone: order.phone,
+                            subtotal: parseFloat(order.subtotalPriceSet?.shopMoney?.amount || '0'),
+                            totalDiscounts: parseFloat(order.totalDiscountsSet?.shopMoney?.amount || '0'),
+                            totalTax: parseFloat(order.totalTaxSet?.shopMoney?.amount || '0'),
+                            totalPrice: parseFloat(order.totalPriceSet?.shopMoney?.amount || '0'),
+                            totalShipping: parseFloat(order.totalShippingPriceSet?.shopMoney?.amount || '0'),
+                            totalRefunded: order.totalRefundedSet?.shopMoney?.amount ? parseFloat(order.totalRefundedSet.shopMoney.amount) : null,
+                            currency: order.currencyCode,
+                            financialStatus: order.displayFinancialStatus?.toLowerCase(),
+                            fulfillmentStatus: order.displayFulfillmentStatus?.toLowerCase(),
+                            notes: order.note,
+                            tags: order.tags?.join(', '),
+                            riskLevel: order.riskLevel?.toLowerCase() || 'low',
+                            lineItems,
+                            shippingAddress: shippingAddress,
+                            billingAddress: billingAddress,
+                            discountCodes: order.discountCodes || [],
+                            processedAt: order.processedAt ? new Date(order.processedAt) : null,
+                            cancelledAt: order.cancelledAt ? new Date(order.cancelledAt) : null,
+                            closedAt: order.closedAt ? new Date(order.closedAt) : null,
+                            rawData: order,
+                            syncedAt: new Date(),
                         },
                     });
-                    if (companyUser) {
-                        companyUserId = companyUser.id;
-                        companyId = companyUser.companyId;
-                    }
+                    processed++;
                 }
-                await this.prisma.orderLocal.upsert({
-                    where: {
-                        merchantId_shopifyOrderId: {
-                            merchantId,
-                            shopifyOrderId: BigInt(order.id),
-                        },
-                    },
-                    create: {
-                        merchantId,
-                        shopifyOrderId: BigInt(order.id),
-                        shopifyOrderNumber: order.order_number?.toString(),
-                        shopifyCustomerId: order.customer?.id ? BigInt(order.customer.id) : null,
-                        companyId,
-                        companyUserId,
-                        email: order.email,
-                        subtotal: order.subtotal_price ? parseFloat(order.subtotal_price) : 0,
-                        totalDiscounts: order.total_discounts ? parseFloat(order.total_discounts) : 0,
-                        totalTax: order.total_tax ? parseFloat(order.total_tax) : 0,
-                        totalPrice: order.total_price ? parseFloat(order.total_price) : 0,
-                        currency: order.currency,
-                        financialStatus: order.financial_status,
-                        fulfillmentStatus: order.fulfillment_status,
-                        lineItems: order.line_items || [],
-                        shippingAddress: order.shipping_address,
-                        billingAddress: order.billing_address,
-                        discountCodes: order.discount_codes || [],
-                        rawData: order,
-                    },
-                    update: {
-                        shopifyOrderNumber: order.order_number?.toString(),
-                        shopifyCustomerId: order.customer?.id ? BigInt(order.customer.id) : null,
-                        companyId,
-                        companyUserId,
-                        email: order.email,
-                        subtotal: order.subtotal_price ? parseFloat(order.subtotal_price) : 0,
-                        totalDiscounts: order.total_discounts ? parseFloat(order.total_discounts) : 0,
-                        totalTax: order.total_tax ? parseFloat(order.total_tax) : 0,
-                        totalPrice: order.total_price ? parseFloat(order.total_price) : 0,
-                        currency: order.currency,
-                        financialStatus: order.financial_status,
-                        fulfillmentStatus: order.fulfillment_status,
-                        lineItems: order.line_items || [],
-                        shippingAddress: order.shipping_address,
-                        billingAddress: order.billing_address,
-                        discountCodes: order.discount_codes || [],
-                        rawData: order,
-                        syncedAt: new Date(),
-                    },
-                });
-                processed++;
-            }
-            if (maxOrderId) {
-                await this.syncState.updateCursor(merchantId, 'orders', null, maxOrderId);
+                hasNextPage = result.orders.pageInfo.hasNextPage;
+                lastCursor = result.orders.pageInfo.endCursor || null;
+                cursor = lastCursor || undefined;
+                await this.syncState.updateCursor(merchantId, 'orders', lastCursor);
+                await job.progress(Math.min((processed / 1000) * 100, 99));
             }
             await this.syncState.updateMetrics(merchantId, 'orders', processed);
             await this.syncState.releaseLock(merchantId, 'orders', 'completed');
@@ -158,6 +219,22 @@ let OrdersSyncWorker = OrdersSyncWorker_1 = class OrdersSyncWorker {
             throw error;
         }
     }
+    extractRiskLevel(order) {
+        if (!order.order_status_url)
+            return null;
+        const risks = order.fraud_lines || order.risks || [];
+        if (risks.length === 0)
+            return 'low';
+        const maxRisk = risks.reduce((max, risk) => {
+            const level = risk.recommendation || risk.level || 'low';
+            if (level === 'cancel' || level === 'high')
+                return 'high';
+            if (level === 'investigate' || level === 'medium')
+                return max === 'high' ? 'high' : 'medium';
+            return max;
+        }, 'low');
+        return maxRisk;
+    }
 };
 exports.OrdersSyncWorker = OrdersSyncWorker;
 __decorate([
@@ -170,7 +247,7 @@ exports.OrdersSyncWorker = OrdersSyncWorker = OrdersSyncWorker_1 = __decorate([
     (0, bull_1.Processor)('orders-sync'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         shopify_service_1.ShopifyService,
-        shopify_rest_service_1.ShopifyRestService,
+        shopify_graphql_service_1.ShopifyGraphqlService,
         sync_state_service_1.SyncStateService])
 ], OrdersSyncWorker);
 //# sourceMappingURL=orders-sync.worker.js.map

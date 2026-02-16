@@ -15,10 +15,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AbandonedCartsController = void 0;
 const common_1 = require("@nestjs/common");
 const throttler_1 = require("@nestjs/throttler");
-const abandoned_carts_service_1 = require("./abandoned-carts.service");
+const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
 const public_decorator_1 = require("../auth/decorators/public.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const abandoned_carts_service_1 = require("./abandoned-carts.service");
 const abandoned_cart_dto_1 = require("./dto/abandoned-cart.dto");
 let AbandonedCartsController = class AbandonedCartsController {
     abandonedCartsService;
@@ -67,7 +67,8 @@ let AbandonedCartsController = class AbandonedCartsController {
         if (!merchantId) {
             throw new common_1.BadRequestException('Merchant ID required');
         }
-        return this.abandonedCartsService.getAllCartActivityLogs(merchantId, limit ? parseInt(limit) : 100);
+        const parsedLimit = limit ? parseInt(limit, 10) : 100;
+        return this.abandonedCartsService.getAllCartActivityLogs(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 100);
     }
     async restoreCart(id, merchantId) {
         return this.abandonedCartsService.markAsRestored(id, merchantId);

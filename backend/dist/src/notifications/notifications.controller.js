@@ -14,9 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsController = void 0;
 const common_1 = require("@nestjs/common");
-const notifications_service_1 = require("./notifications.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const notifications_service_1 = require("./notifications.service");
 let NotificationsController = class NotificationsController {
     notificationsService;
     constructor(notificationsService) {
@@ -31,10 +31,14 @@ let NotificationsController = class NotificationsController {
             filters.type = type;
         if (isRead !== undefined)
             filters.isRead = isRead === 'true';
-        if (limit)
-            filters.limit = parseInt(limit, 10);
-        if (offset)
-            filters.offset = parseInt(offset, 10);
+        if (limit) {
+            const n = parseInt(limit, 10);
+            filters.limit = Number.isFinite(n) ? n : undefined;
+        }
+        if (offset) {
+            const n = parseInt(offset, 10);
+            filters.offset = Number.isFinite(n) ? n : undefined;
+        }
         return this.notificationsService.getNotifications(userId, companyId, filters);
     }
     async getUnreadCount(userId, companyId) {

@@ -14,11 +14,11 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 var NotificationsGateway_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsGateway = void 0;
+const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+const jwt_1 = require("@nestjs/jwt");
 const websockets_1 = require("@nestjs/websockets");
 const socket_io_1 = require("socket.io");
-const common_1 = require("@nestjs/common");
-const jwt_1 = require("@nestjs/jwt");
-const config_1 = require("@nestjs/config");
 let NotificationsGateway = NotificationsGateway_1 = class NotificationsGateway {
     jwtService;
     configService;
@@ -229,8 +229,8 @@ exports.NotificationsGateway = NotificationsGateway = NotificationsGateway_1 = _
     (0, websockets_1.WebSocketGateway)({
         cors: {
             origin: [
-                'https://accounts.eagledtfsupply.com',
-                'https://app.eagledtfsupply.com',
+                process.env.ACCOUNTS_URL || 'http://localhost:3000',
+                process.env.ADMIN_URL || 'http://localhost:3001',
                 'http://localhost:3000',
                 'http://localhost:3001',
             ],

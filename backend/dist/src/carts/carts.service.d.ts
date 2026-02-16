@@ -23,24 +23,6 @@ export declare class CartsService {
             companyGroup: string | null;
             createdByShopifyCustomerId: bigint | null;
         };
-        createdBy: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            shopifyCustomerId: bigint | null;
-            email: string;
-            firstName: string | null;
-            lastName: string | null;
-            companyId: string;
-            isActive: boolean;
-            passwordHash: string | null;
-            role: string;
-            permissions: import("@prisma/client/runtime/client").JsonValue;
-            lastLoginAt: Date | null;
-            invitationToken: string | null;
-            invitationSentAt: Date | null;
-            invitationAcceptedAt: Date | null;
-        };
         items: {
             id: string;
             createdAt: Date;
@@ -60,15 +42,34 @@ export declare class CartsService {
             lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
             appliedPricingRuleId: string | null;
         }[];
+        createdBy: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            shopifyCustomerId: bigint | null;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+            companyId: string;
+            isActive: boolean;
+            passwordHash: string | null;
+            role: string;
+            permissions: import("@prisma/client/runtime/client").JsonValue;
+            lastLoginAt: Date | null;
+            invitationToken: string | null;
+            invitationSentAt: Date | null;
+            invitationAcceptedAt: Date | null;
+        };
     } & {
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -80,7 +81,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     findActiveCart(companyId: string, userId: string): Promise<({
@@ -94,15 +94,29 @@ export declare class CartsService {
                     merchantId: string;
                     tags: string | null;
                     rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                    metafields: import("@prisma/client/runtime/client").JsonValue | null;
                     syncedAt: Date;
                     shopifyProductId: bigint;
                     title: string | null;
                     handle: string | null;
                     description: string | null;
+                    descriptionHtml: string | null;
                     vendor: string | null;
                     productType: string | null;
                     images: import("@prisma/client/runtime/client").JsonValue | null;
                     collections: import("@prisma/client/runtime/client").JsonValue | null;
+                    seoTitle: string | null;
+                    seoDescription: string | null;
+                    options: import("@prisma/client/runtime/client").JsonValue | null;
+                    media: import("@prisma/client/runtime/client").JsonValue | null;
+                    templateSuffix: string | null;
+                    publishedAt: Date | null;
+                    onlineStoreUrl: string | null;
+                    totalInventory: number | null;
+                    hasOnlyDefaultVariant: boolean | null;
+                    requiresSellingPlan: boolean | null;
+                    reviewsAvgRating: import("@prisma/client-runtime-utils").Decimal | null;
+                    reviewsCount: number | null;
                 };
             } & {
                 id: string;
@@ -114,6 +128,7 @@ export declare class CartsService {
                 productId: string;
                 shopifyVariantId: bigint;
                 sku: string | null;
+                barcode: string | null;
                 price: import("@prisma/client-runtime-utils").Decimal | null;
                 compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
                 inventoryQuantity: number | null;
@@ -122,6 +137,12 @@ export declare class CartsService {
                 option1: string | null;
                 option2: string | null;
                 option3: string | null;
+                imageUrl: string | null;
+                position: number | null;
+                taxable: boolean | null;
+                requiresShipping: boolean | null;
+                availableForSale: boolean | null;
+                inventoryPolicy: string | null;
             }) | null;
         } & {
             id: string;
@@ -148,9 +169,10 @@ export declare class CartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -162,7 +184,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }) | null>;
     findById(id: string): Promise<{
@@ -184,6 +205,85 @@ export declare class CartsService {
             companyGroup: string | null;
             createdByShopifyCustomerId: bigint | null;
         };
+        items: ({
+            variant: ({
+                product: {
+                    id: string;
+                    status: string | null;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    merchantId: string;
+                    tags: string | null;
+                    rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                    metafields: import("@prisma/client/runtime/client").JsonValue | null;
+                    syncedAt: Date;
+                    shopifyProductId: bigint;
+                    title: string | null;
+                    handle: string | null;
+                    description: string | null;
+                    descriptionHtml: string | null;
+                    vendor: string | null;
+                    productType: string | null;
+                    images: import("@prisma/client/runtime/client").JsonValue | null;
+                    collections: import("@prisma/client/runtime/client").JsonValue | null;
+                    seoTitle: string | null;
+                    seoDescription: string | null;
+                    options: import("@prisma/client/runtime/client").JsonValue | null;
+                    media: import("@prisma/client/runtime/client").JsonValue | null;
+                    templateSuffix: string | null;
+                    publishedAt: Date | null;
+                    onlineStoreUrl: string | null;
+                    totalInventory: number | null;
+                    hasOnlyDefaultVariant: boolean | null;
+                    requiresSellingPlan: boolean | null;
+                    reviewsAvgRating: import("@prisma/client-runtime-utils").Decimal | null;
+                    reviewsCount: number | null;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                syncedAt: Date;
+                title: string | null;
+                productId: string;
+                shopifyVariantId: bigint;
+                sku: string | null;
+                barcode: string | null;
+                price: import("@prisma/client-runtime-utils").Decimal | null;
+                compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
+                inventoryQuantity: number | null;
+                weight: import("@prisma/client-runtime-utils").Decimal | null;
+                weightUnit: string | null;
+                option1: string | null;
+                option2: string | null;
+                option3: string | null;
+                imageUrl: string | null;
+                position: number | null;
+                taxable: boolean | null;
+                requiresShipping: boolean | null;
+                availableForSale: boolean | null;
+                inventoryPolicy: string | null;
+            }) | null;
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            shopifyProductId: bigint | null;
+            title: string | null;
+            cartId: string;
+            productId: string | null;
+            variantId: string | null;
+            shopifyVariantId: bigint | null;
+            quantity: number;
+            sku: string | null;
+            variantTitle: string | null;
+            listPrice: import("@prisma/client-runtime-utils").Decimal;
+            unitPrice: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
+            appliedPricingRuleId: string | null;
+        })[];
         createdBy: {
             id: string;
             createdAt: Date;
@@ -220,73 +320,16 @@ export declare class CartsService {
             invitationSentAt: Date | null;
             invitationAcceptedAt: Date | null;
         } | null;
-        items: ({
-            variant: ({
-                product: {
-                    id: string;
-                    status: string | null;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    merchantId: string;
-                    tags: string | null;
-                    rawData: import("@prisma/client/runtime/client").JsonValue | null;
-                    syncedAt: Date;
-                    shopifyProductId: bigint;
-                    title: string | null;
-                    handle: string | null;
-                    description: string | null;
-                    vendor: string | null;
-                    productType: string | null;
-                    images: import("@prisma/client/runtime/client").JsonValue | null;
-                    collections: import("@prisma/client/runtime/client").JsonValue | null;
-                };
-            } & {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                rawData: import("@prisma/client/runtime/client").JsonValue | null;
-                syncedAt: Date;
-                title: string | null;
-                productId: string;
-                shopifyVariantId: bigint;
-                sku: string | null;
-                price: import("@prisma/client-runtime-utils").Decimal | null;
-                compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
-                inventoryQuantity: number | null;
-                weight: import("@prisma/client-runtime-utils").Decimal | null;
-                weightUnit: string | null;
-                option1: string | null;
-                option2: string | null;
-                option3: string | null;
-            }) | null;
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            shopifyProductId: bigint | null;
-            title: string | null;
-            cartId: string;
-            productId: string | null;
-            variantId: string | null;
-            shopifyVariantId: bigint | null;
-            quantity: number;
-            sku: string | null;
-            variantTitle: string | null;
-            listPrice: import("@prisma/client-runtime-utils").Decimal;
-            unitPrice: import("@prisma/client-runtime-utils").Decimal;
-            discountAmount: import("@prisma/client-runtime-utils").Decimal;
-            lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
-            appliedPricingRuleId: string | null;
-        })[];
     } & {
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -298,7 +341,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     recalculate(cartId: string): Promise<{
@@ -320,6 +362,85 @@ export declare class CartsService {
             companyGroup: string | null;
             createdByShopifyCustomerId: bigint | null;
         };
+        items: ({
+            variant: ({
+                product: {
+                    id: string;
+                    status: string | null;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    merchantId: string;
+                    tags: string | null;
+                    rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                    metafields: import("@prisma/client/runtime/client").JsonValue | null;
+                    syncedAt: Date;
+                    shopifyProductId: bigint;
+                    title: string | null;
+                    handle: string | null;
+                    description: string | null;
+                    descriptionHtml: string | null;
+                    vendor: string | null;
+                    productType: string | null;
+                    images: import("@prisma/client/runtime/client").JsonValue | null;
+                    collections: import("@prisma/client/runtime/client").JsonValue | null;
+                    seoTitle: string | null;
+                    seoDescription: string | null;
+                    options: import("@prisma/client/runtime/client").JsonValue | null;
+                    media: import("@prisma/client/runtime/client").JsonValue | null;
+                    templateSuffix: string | null;
+                    publishedAt: Date | null;
+                    onlineStoreUrl: string | null;
+                    totalInventory: number | null;
+                    hasOnlyDefaultVariant: boolean | null;
+                    requiresSellingPlan: boolean | null;
+                    reviewsAvgRating: import("@prisma/client-runtime-utils").Decimal | null;
+                    reviewsCount: number | null;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                syncedAt: Date;
+                title: string | null;
+                productId: string;
+                shopifyVariantId: bigint;
+                sku: string | null;
+                barcode: string | null;
+                price: import("@prisma/client-runtime-utils").Decimal | null;
+                compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
+                inventoryQuantity: number | null;
+                weight: import("@prisma/client-runtime-utils").Decimal | null;
+                weightUnit: string | null;
+                option1: string | null;
+                option2: string | null;
+                option3: string | null;
+                imageUrl: string | null;
+                position: number | null;
+                taxable: boolean | null;
+                requiresShipping: boolean | null;
+                availableForSale: boolean | null;
+                inventoryPolicy: string | null;
+            }) | null;
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            shopifyProductId: bigint | null;
+            title: string | null;
+            cartId: string;
+            productId: string | null;
+            variantId: string | null;
+            shopifyVariantId: bigint | null;
+            quantity: number;
+            sku: string | null;
+            variantTitle: string | null;
+            listPrice: import("@prisma/client-runtime-utils").Decimal;
+            unitPrice: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
+            appliedPricingRuleId: string | null;
+        })[];
         createdBy: {
             id: string;
             createdAt: Date;
@@ -356,73 +477,16 @@ export declare class CartsService {
             invitationSentAt: Date | null;
             invitationAcceptedAt: Date | null;
         } | null;
-        items: ({
-            variant: ({
-                product: {
-                    id: string;
-                    status: string | null;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    merchantId: string;
-                    tags: string | null;
-                    rawData: import("@prisma/client/runtime/client").JsonValue | null;
-                    syncedAt: Date;
-                    shopifyProductId: bigint;
-                    title: string | null;
-                    handle: string | null;
-                    description: string | null;
-                    vendor: string | null;
-                    productType: string | null;
-                    images: import("@prisma/client/runtime/client").JsonValue | null;
-                    collections: import("@prisma/client/runtime/client").JsonValue | null;
-                };
-            } & {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                rawData: import("@prisma/client/runtime/client").JsonValue | null;
-                syncedAt: Date;
-                title: string | null;
-                productId: string;
-                shopifyVariantId: bigint;
-                sku: string | null;
-                price: import("@prisma/client-runtime-utils").Decimal | null;
-                compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
-                inventoryQuantity: number | null;
-                weight: import("@prisma/client-runtime-utils").Decimal | null;
-                weightUnit: string | null;
-                option1: string | null;
-                option2: string | null;
-                option3: string | null;
-            }) | null;
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            shopifyProductId: bigint | null;
-            title: string | null;
-            cartId: string;
-            productId: string | null;
-            variantId: string | null;
-            shopifyVariantId: bigint | null;
-            quantity: number;
-            sku: string | null;
-            variantTitle: string | null;
-            listPrice: import("@prisma/client-runtime-utils").Decimal;
-            unitPrice: import("@prisma/client-runtime-utils").Decimal;
-            discountAmount: import("@prisma/client-runtime-utils").Decimal;
-            lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
-            appliedPricingRuleId: string | null;
-        })[];
     } & {
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -434,7 +498,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     submitForApproval(cartId: string): Promise<{
@@ -443,9 +506,10 @@ export declare class CartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -457,7 +521,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     approve(cartId: string, approvedByUserId: string): Promise<{
@@ -466,9 +529,10 @@ export declare class CartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -480,7 +544,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     reject(cartId: string): Promise<{
@@ -489,9 +552,10 @@ export declare class CartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -503,7 +567,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     abandon(cartId: string): Promise<{
@@ -512,9 +575,10 @@ export declare class CartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -526,7 +590,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     delete(cartId: string): Promise<{
@@ -535,9 +598,10 @@ export declare class CartsService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -549,16 +613,9 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     listCompanyCarts(companyId: string, status?: string): Promise<({
-        createdBy: {
-            id: string;
-            email: string;
-            firstName: string | null;
-            lastName: string | null;
-        };
         items: {
             id: string;
             createdAt: Date;
@@ -578,15 +635,22 @@ export declare class CartsService {
             lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
             appliedPricingRuleId: string | null;
         }[];
+        createdBy: {
+            id: string;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+        };
     } & {
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -598,7 +662,6 @@ export declare class CartsService {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
 }

@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.QuotesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const shopify_service_1 = require("../shopify/shopify.service");
 let QuotesService = class QuotesService {
     prisma;
-    constructor(prisma) {
+    shopifyService;
+    constructor(prisma, shopifyService) {
         this.prisma = prisma;
+        this.shopifyService = shopifyService;
     }
     async create(companyId, userId, data) {
         return this.prisma.cart.create({
@@ -28,6 +31,21 @@ let QuotesService = class QuotesService {
                 metadata: { type: 'quote', ...data.metadata },
             },
         });
+    }
+    async sendQuoteEmail(quoteId, merchantId) {
+        const quote = await this.prisma.cart.findUnique({
+            where: { id: quoteId },
+            include: {
+                company: true,
+            }
+        });
+        if (!quote)
+            throw new common_1.NotFoundException('Quote not found');
+        const shopifyDraftOrderId = quote.metadata ? quote.metadata.shopifyDraftOrderId : null;
+        if (!shopifyDraftOrderId) {
+            throw new Error('No linked Shopify Draft Order found for this quote');
+        }
+        return this.shopifyService.sendDraftOrderInvoice(merchantId, shopifyDraftOrderId.toString());
     }
     async findAll(companyId) {
         return this.prisma.cart.findMany({
@@ -74,6 +92,7 @@ let QuotesService = class QuotesService {
 exports.QuotesService = QuotesService;
 exports.QuotesService = QuotesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        shopify_service_1.ShopifyService])
 ], QuotesService);
 //# sourceMappingURL=quotes.service.js.map

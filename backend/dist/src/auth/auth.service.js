@@ -45,14 +45,14 @@ var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
-const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
+const jwt_1 = require("@nestjs/jwt");
+const bcrypt = __importStar(require("bcrypt"));
+const mail_service_1 = require("../mail/mail.service");
 const prisma_service_1 = require("../prisma/prisma.service");
+const redis_service_1 = require("../redis/redis.service");
 const shopify_customer_sync_service_1 = require("../shopify/shopify-customer-sync.service");
 const shopify_rest_service_1 = require("../shopify/shopify-rest.service");
-const mail_service_1 = require("../mail/mail.service");
-const redis_service_1 = require("../redis/redis.service");
-const bcrypt = __importStar(require("bcrypt"));
 let AuthService = AuthService_1 = class AuthService {
     prisma;
     jwtService;
@@ -638,7 +638,8 @@ let AuthService = AuthService_1 = class AuthService {
         const resetToken = await this.jwtService.signAsync({ sub: user.id, email: user.email, type: 'password_reset' }, { expiresIn: '1h' });
         const redisKey = `password_reset:${user.id}`;
         await this.redisService.set(redisKey, resetToken, 3600);
-        const resetUrl = `https://accounts.eagledtfsupply.com/reset-password?token=${resetToken}`;
+        const accountsUrl = this.config.get('ACCOUNTS_URL', '');
+        const resetUrl = `${accountsUrl}/reset-password?token=${resetToken}`;
         try {
             await this.mailService.sendPasswordReset(user.email, resetUrl);
             this.logger.log(`✅ [PASSWORD_RESET] Reset email sent to ${email}`);

@@ -10,9 +10,9 @@ export declare class WishlistController {
         productTitle: string;
         variantTitle: string | null;
         price: number;
+        addedAt: Date;
         productImage: string | null;
         wishlistId: string;
-        addedAt: Date;
     }[]>;
     addToWishlist(id: string, currentUserId: string, companyId: string, merchantId: string, dto: AddToWishlistDto): Promise<{
         id: string;
@@ -21,9 +21,9 @@ export declare class WishlistController {
         productTitle: string;
         variantTitle: string | null;
         price: number;
+        addedAt: Date;
         productImage: string | null;
         wishlistId: string;
-        addedAt: Date;
     }>;
     removeFromWishlist(id: string, productId: string, currentUserId: string, merchantId: string): Promise<{
         success: boolean;

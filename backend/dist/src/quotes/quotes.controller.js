@@ -14,10 +14,10 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QuotesController = void 0;
 const common_1 = require("@nestjs/common");
-const quotes_service_1 = require("./quotes.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const quote_dto_1 = require("./dto/quote.dto");
+const quotes_service_1 = require("./quotes.service");
 let QuotesController = class QuotesController {
     quotesService;
     constructor(quotesService) {
@@ -43,6 +43,12 @@ let QuotesController = class QuotesController {
     }
     async reject(id) {
         return this.quotesService.reject(id);
+    }
+    async sendEmail(id, merchantId) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        return this.quotesService.sendQuoteEmail(id, merchantId);
     }
 };
 exports.QuotesController = QuotesController;
@@ -77,6 +83,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], QuotesController.prototype, "reject", null);
+__decorate([
+    (0, common_1.Post)(':id/send-email'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], QuotesController.prototype, "sendEmail", null);
 exports.QuotesController = QuotesController = __decorate([
     (0, common_1.Controller)('quotes'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

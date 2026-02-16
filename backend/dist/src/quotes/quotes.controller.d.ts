@@ -1,14 +1,9 @@
-import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/quote.dto';
+import { QuotesService } from './quotes.service';
 export declare class QuotesController {
     private quotesService;
     constructor(quotesService: QuotesService);
     findAll(companyId: string): Promise<({
-        createdBy: {
-            email: string;
-            firstName: string | null;
-            lastName: string | null;
-        };
         items: ({
             variant: ({
                 product: {
@@ -19,15 +14,29 @@ export declare class QuotesController {
                     merchantId: string;
                     tags: string | null;
                     rawData: import("@prisma/client/runtime/client").JsonValue | null;
+                    metafields: import("@prisma/client/runtime/client").JsonValue | null;
                     syncedAt: Date;
                     shopifyProductId: bigint;
                     title: string | null;
                     handle: string | null;
                     description: string | null;
+                    descriptionHtml: string | null;
                     vendor: string | null;
                     productType: string | null;
                     images: import("@prisma/client/runtime/client").JsonValue | null;
                     collections: import("@prisma/client/runtime/client").JsonValue | null;
+                    seoTitle: string | null;
+                    seoDescription: string | null;
+                    options: import("@prisma/client/runtime/client").JsonValue | null;
+                    media: import("@prisma/client/runtime/client").JsonValue | null;
+                    templateSuffix: string | null;
+                    publishedAt: Date | null;
+                    onlineStoreUrl: string | null;
+                    totalInventory: number | null;
+                    hasOnlyDefaultVariant: boolean | null;
+                    requiresSellingPlan: boolean | null;
+                    reviewsAvgRating: import("@prisma/client-runtime-utils").Decimal | null;
+                    reviewsCount: number | null;
                 };
             } & {
                 id: string;
@@ -39,6 +48,7 @@ export declare class QuotesController {
                 productId: string;
                 shopifyVariantId: bigint;
                 sku: string | null;
+                barcode: string | null;
                 price: import("@prisma/client-runtime-utils").Decimal | null;
                 compareAtPrice: import("@prisma/client-runtime-utils").Decimal | null;
                 inventoryQuantity: number | null;
@@ -47,6 +57,12 @@ export declare class QuotesController {
                 option1: string | null;
                 option2: string | null;
                 option3: string | null;
+                imageUrl: string | null;
+                position: number | null;
+                taxable: boolean | null;
+                requiresShipping: boolean | null;
+                availableForSale: boolean | null;
+                inventoryPolicy: string | null;
             }) | null;
         } & {
             id: string;
@@ -67,15 +83,21 @@ export declare class QuotesController {
             lineTotal: import("@prisma/client-runtime-utils").Decimal | null;
             appliedPricingRuleId: string | null;
         })[];
+        createdBy: {
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+        };
     } & {
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -87,7 +109,6 @@ export declare class QuotesController {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     create(companyId: string, userId: string, dto: CreateQuoteDto): Promise<{
@@ -96,9 +117,10 @@ export declare class QuotesController {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -110,7 +132,6 @@ export declare class QuotesController {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     approve(id: string, userId: string): Promise<{
@@ -119,9 +140,10 @@ export declare class QuotesController {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -133,7 +155,6 @@ export declare class QuotesController {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     reject(id: string): Promise<{
@@ -142,9 +163,10 @@ export declare class QuotesController {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        currency: string;
         companyId: string;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
-        currency: string;
+        notes: string | null;
         createdByUserId: string;
         discountTotal: import("@prisma/client-runtime-utils").Decimal;
         taxTotal: import("@prisma/client-runtime-utils").Decimal;
@@ -156,7 +178,7 @@ export declare class QuotesController {
         approvedAt: Date | null;
         convertedToOrderId: string | null;
         convertedAt: Date | null;
-        notes: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
+    sendEmail(id: string, merchantId: string): Promise<any>;
 }

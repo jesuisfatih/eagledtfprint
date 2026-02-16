@@ -8,12 +8,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompaniesModule = void 0;
 const common_1 = require("@nestjs/common");
-const companies_service_1 = require("./companies.service");
-const companies_controller_1 = require("./companies.controller");
-const company_users_service_1 = require("./company-users.service");
-const company_users_controller_1 = require("./company-users.controller");
-const shopify_company_sync_service_1 = require("./shopify-company-sync.service");
 const shopify_module_1 = require("../shopify/shopify.module");
+const companies_controller_1 = require("./companies.controller");
+const companies_service_1 = require("./companies.service");
+const company_intelligence_service_1 = require("./company-intelligence.service");
+const company_users_controller_1 = require("./company-users.controller");
+const company_users_service_1 = require("./company-users.service");
+const shopify_company_sync_service_1 = require("./shopify-company-sync.service");
 let CompaniesModule = class CompaniesModule {
 };
 exports.CompaniesModule = CompaniesModule;
@@ -21,8 +22,8 @@ exports.CompaniesModule = CompaniesModule = __decorate([
     (0, common_1.Module)({
         imports: [(0, common_1.forwardRef)(() => shopify_module_1.ShopifyModule)],
         controllers: [companies_controller_1.CompaniesController, company_users_controller_1.CompanyUsersController],
-        providers: [companies_service_1.CompaniesService, company_users_service_1.CompanyUsersService, shopify_company_sync_service_1.ShopifyCompanySyncService],
-        exports: [companies_service_1.CompaniesService, company_users_service_1.CompanyUsersService],
+        providers: [companies_service_1.CompaniesService, company_users_service_1.CompanyUsersService, company_intelligence_service_1.CompanyIntelligenceService, shopify_company_sync_service_1.ShopifyCompanySyncService],
+        exports: [companies_service_1.CompaniesService, company_users_service_1.CompanyUsersService, company_intelligence_service_1.CompanyIntelligenceService],
     })
 ], CompaniesModule);
 //# sourceMappingURL=companies.module.js.map

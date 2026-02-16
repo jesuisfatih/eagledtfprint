@@ -14,15 +14,15 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrdersController = void 0;
 const common_1 = require("@nestjs/common");
-const orders_service_1 = require("./orders.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const orders_service_1 = require("./orders.service");
 let OrdersController = class OrdersController {
     ordersService;
     constructor(ordersService) {
         this.ordersService = ordersService;
     }
-    async findAll(merchantId, userCompanyId, role, queryCompanyId, status) {
+    async findAll(merchantId, userCompanyId, role, queryCompanyId, status, pickupOnly, hasDesignFiles) {
         if (!merchantId) {
             throw new common_1.BadRequestException('Merchant ID required');
         }
@@ -30,13 +30,30 @@ let OrdersController = class OrdersController {
         if (userCompanyId) {
             companyId = userCompanyId;
         }
-        return this.ordersService.findAll(merchantId, { companyId, status });
+        return this.ordersService.findAll(merchantId, {
+            companyId,
+            status,
+            pickupOnly: pickupOnly === 'true',
+            hasDesignFiles: hasDesignFiles === 'true',
+        });
     }
     async getStats(merchantId, companyId) {
         if (!merchantId) {
             throw new common_1.BadRequestException('Merchant ID required');
         }
         return this.ordersService.getStats(merchantId, companyId);
+    }
+    async getCustomerJourney(merchantId, shopifyCustomerId) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        return this.ordersService.getCustomerJourney(merchantId, shopifyCustomerId);
+    }
+    async getJourneyFunnel(merchantId) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        return this.ordersService.getJourneyFunnel(merchantId);
     }
     async findOne(id, merchantId, companyId) {
         if (!merchantId) {
@@ -53,8 +70,10 @@ __decorate([
     __param(2, (0, current_user_decorator_1.CurrentUser)('role')),
     __param(3, (0, common_1.Query)('companyId')),
     __param(4, (0, common_1.Query)('status')),
+    __param(5, (0, common_1.Query)('pickupOnly')),
+    __param(6, (0, common_1.Query)('hasDesignFiles')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "findAll", null);
 __decorate([
@@ -65,6 +84,21 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getStats", null);
+__decorate([
+    (0, common_1.Get)('journey/:shopifyCustomerId'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Param)('shopifyCustomerId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getCustomerJourney", null);
+__decorate([
+    (0, common_1.Get)('journey-funnel'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getJourneyFunnel", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

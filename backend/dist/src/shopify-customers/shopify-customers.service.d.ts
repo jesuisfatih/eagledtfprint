@@ -4,42 +4,11 @@ export declare class ShopifyCustomersService {
     constructor(prisma: PrismaService);
     findAll(merchantId: string, filters?: {
         search?: string;
-    }): Promise<{
-        shopifyCustomerId: string;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        merchantId: string;
-        email: string | null;
-        firstName: string | null;
-        lastName: string | null;
-        phone: string | null;
-        addresses: import("@prisma/client/runtime/client").JsonValue | null;
-        tags: string | null;
-        note: string | null;
-        totalSpent: import("@prisma/client-runtime-utils").Decimal | null;
-        ordersCount: number;
-        rawData: import("@prisma/client/runtime/client").JsonValue | null;
-        syncedAt: Date;
-    }[]>;
-    findOne(id: string): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        merchantId: string;
-        shopifyCustomerId: bigint;
-        email: string | null;
-        firstName: string | null;
-        lastName: string | null;
-        phone: string | null;
-        addresses: import("@prisma/client/runtime/client").JsonValue | null;
-        tags: string | null;
-        note: string | null;
-        totalSpent: import("@prisma/client-runtime-utils").Decimal | null;
-        ordersCount: number;
-        rawData: import("@prisma/client/runtime/client").JsonValue | null;
-        syncedAt: Date;
-    } | null>;
+        segment?: string;
+        churnRisk?: string;
+        clvTier?: string;
+    }): Promise<any[]>;
+    findOne(id: string): Promise<any>;
     convertToCompany(customerId: string, merchantId: string): Promise<{
         company: {
             name: string;

@@ -24,4 +24,7 @@ export declare class ShopifyService {
     getApiVersion(): string;
     buildAdminApiUrl(shop: string, path: string): string;
     buildAdminGraphQLUrl(shop: string): string;
+    graphqlRequest(merchantId: string, query: string, variables?: any): Promise<any>;
+    sendDraftOrderInvoice(merchantId: string, shopifyDraftOrderId: string): Promise<any>;
+    createDraftOrder(merchantId: string, input: any): Promise<any>;
 }

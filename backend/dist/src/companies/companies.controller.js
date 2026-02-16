@@ -14,17 +14,20 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompaniesController = void 0;
 const common_1 = require("@nestjs/common");
-const companies_service_1 = require("./companies.service");
-const company_users_service_1 = require("./company-users.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const companies_service_1 = require("./companies.service");
+const company_intelligence_service_1 = require("./company-intelligence.service");
+const company_users_service_1 = require("./company-users.service");
 const company_dto_1 = require("./dto/company.dto");
 let CompaniesController = class CompaniesController {
     companiesService;
     companyUsersService;
-    constructor(companiesService, companyUsersService) {
+    companyIntelligence;
+    constructor(companiesService, companyUsersService, companyIntelligence) {
         this.companiesService = companiesService;
         this.companyUsersService = companyUsersService;
+        this.companyIntelligence = companyIntelligence;
     }
     async findAll(merchantId, query) {
         if (!merchantId) {
@@ -37,6 +40,21 @@ let CompaniesController = class CompaniesController {
             throw new common_1.BadRequestException('Merchant ID required');
         }
         return this.companiesService.getStats(merchantId);
+    }
+    async getIntelligenceDashboard(merchantId) {
+        if (!merchantId)
+            throw new common_1.BadRequestException('Merchant ID required');
+        return this.companyIntelligence.getDashboard(merchantId);
+    }
+    async getCompanyIntelligence(merchantId, companyId) {
+        if (!merchantId)
+            throw new common_1.BadRequestException('Merchant ID required');
+        return this.companyIntelligence.getCompanyDetail(merchantId, companyId);
+    }
+    async calculateIntelligence(merchantId) {
+        if (!merchantId)
+            throw new common_1.BadRequestException('Merchant ID required');
+        return this.companyIntelligence.calculateAll(merchantId);
     }
     async findOne(id, merchantId) {
         if (!merchantId) {
@@ -109,6 +127,28 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CompaniesController.prototype, "getStats", null);
+__decorate([
+    (0, common_1.Get)('intelligence/dashboard'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CompaniesController.prototype, "getIntelligenceDashboard", null);
+__decorate([
+    (0, common_1.Get)('intelligence/:companyId'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Param)('companyId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CompaniesController.prototype, "getCompanyIntelligence", null);
+__decorate([
+    (0, common_1.Post)('intelligence/calculate'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CompaniesController.prototype, "calculateIntelligence", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -201,6 +241,7 @@ exports.CompaniesController = CompaniesController = __decorate([
     (0, common_1.Controller)('companies'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [companies_service_1.CompaniesService,
-        company_users_service_1.CompanyUsersService])
+        company_users_service_1.CompanyUsersService,
+        company_intelligence_service_1.CompanyIntelligenceService])
 ], CompaniesController);
 //# sourceMappingURL=companies.controller.js.map

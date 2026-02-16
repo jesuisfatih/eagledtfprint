@@ -7,6 +7,7 @@ interface ShopifyCallbackParams {
     hmac: string;
     timestamp: string;
     state: string;
+    [key: string]: string;
 }
 export declare class ShopifyOauthService {
     private config;

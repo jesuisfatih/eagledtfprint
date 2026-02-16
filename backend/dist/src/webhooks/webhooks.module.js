@@ -8,17 +8,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebhooksModule = void 0;
 const common_1 = require("@nestjs/common");
-const webhooks_controller_1 = require("./webhooks.controller");
-const orders_handler_1 = require("./handlers/orders.handler");
-const customers_handler_1 = require("./handlers/customers.handler");
-const shopify_webhook_sync_service_1 = require("./shopify-webhook-sync.service");
+const dittofeed_module_1 = require("../dittofeed/dittofeed.module");
+const pickup_module_1 = require("../pickup/pickup.module");
 const shopify_module_1 = require("../shopify/shopify.module");
+const customers_handler_1 = require("./handlers/customers.handler");
+const orders_handler_1 = require("./handlers/orders.handler");
+const shopify_webhook_sync_service_1 = require("./shopify-webhook-sync.service");
+const webhooks_controller_1 = require("./webhooks.controller");
 let WebhooksModule = class WebhooksModule {
 };
 exports.WebhooksModule = WebhooksModule;
 exports.WebhooksModule = WebhooksModule = __decorate([
     (0, common_1.Module)({
-        imports: [shopify_module_1.ShopifyModule],
+        imports: [shopify_module_1.ShopifyModule, pickup_module_1.PickupModule, dittofeed_module_1.DittofeedModule],
         controllers: [webhooks_controller_1.WebhooksController],
         providers: [orders_handler_1.OrdersHandler, customers_handler_1.CustomersHandler, shopify_webhook_sync_service_1.ShopifyWebhookSyncService],
     })

@@ -121,10 +121,95 @@ let PrismaService = PrismaService_1 = class PrismaService {
     get trafficAttribution() {
         return this.prisma.trafficAttribution;
     }
+    get invoice() {
+        return this.prisma.invoice;
+    }
+    get quote() {
+        return this.prisma.quote;
+    }
+    get pickupShelf() {
+        return this.prisma.pickupShelf;
+    }
+    get pickupOrder() {
+        return this.prisma.pickupOrder;
+    }
+    get customerInsight() {
+        return this.prisma.customerInsight;
+    }
+    get proactiveOffer() {
+        return this.prisma.proactiveOffer;
+    }
+    get customerList() {
+        return this.prisma.customerList;
+    }
+    get customerListItem() {
+        return this.prisma.customerListItem;
+    }
+    get designProject() {
+        return this.prisma.designProject;
+    }
+    get marketingSync() {
+        return this.prisma.marketingSync;
+    }
+    get productionJob() {
+        return this.prisma.productionJob;
+    }
+    get printer() {
+        return this.prisma.printer;
+    }
+    get gangSheetBatch() {
+        return this.prisma.gangSheetBatch;
+    }
     async onModuleInit() {
         try {
             await this.$connect();
             this.logger.log('✅ Database connected successfully');
+            const envToken = this.config.get('SHOPIFY_ACCESS_TOKEN');
+            const envDomain = this.config.get('SHOPIFY_STORE_DOMAIN');
+            const isPlaceholder = !envToken || ['PLACEHOLDER', 'temp', 'YOUR_TOKEN_HERE'].includes(envToken);
+            const existingMerchant = await this.prisma.merchant.findFirst();
+            if (!existingMerchant && envDomain) {
+                try {
+                    const tokenToUse = isPlaceholder ? 'awaiting-oauth' : envToken;
+                    await this.prisma.merchant.create({
+                        data: {
+                            shopDomain: envDomain,
+                            accessToken: tokenToUse,
+                            scope: this.config.get('SHOPIFY_SCOPES', ''),
+                            status: 'active',
+                            settings: {},
+                        },
+                    });
+                    this.logger.log(`🏪 Auto-seeded merchant for ${envDomain} (token: ${isPlaceholder ? 'awaiting OAuth' : 'from env'})`);
+                }
+                catch (seedErr) {
+                    this.logger.warn('⚠️ Could not auto-seed merchant', seedErr);
+                }
+            }
+            else if (existingMerchant && !isPlaceholder && envDomain) {
+                try {
+                    const merchant = await this.prisma.merchant.findFirst({
+                        where: { shopDomain: envDomain },
+                    });
+                    if (merchant && merchant.accessToken !== envToken) {
+                        await this.prisma.merchant.update({
+                            where: { id: merchant.id },
+                            data: { accessToken: envToken },
+                        });
+                        await this.prisma.syncState.updateMany({
+                            where: { merchantId: merchant.id },
+                            data: { consecutiveFailures: 0, lastError: null, status: 'idle' },
+                        });
+                        this.logger.log(`🔑 Merchant access token synced from env for ${envDomain}`);
+                    }
+                }
+                catch (tokenErr) {
+                    this.logger.warn('⚠️ Could not sync merchant token from env', tokenErr);
+                }
+            }
+            else if (isPlaceholder && existingMerchant) {
+                this.logger.log('ℹ️ Skipping env token sync — env token is placeholder, using DB token');
+            }
         }
         catch (error) {
             this.logger.error('❌ Failed to connect to database', error);

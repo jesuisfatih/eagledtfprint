@@ -31,7 +31,7 @@ let AppController = class AppController {
         this.config = config;
     }
     getRoot(shop, host, res) {
-        const adminUrl = this.config.get('ADMIN_URL', 'https://app.eagledtfsupply.com');
+        const adminUrl = this.config.get('ADMIN_URL', '');
         if (host || shop) {
             const html = `
 <!DOCTYPE html>

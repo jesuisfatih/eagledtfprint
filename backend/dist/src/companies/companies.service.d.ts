@@ -17,6 +17,10 @@ export declare class CompaniesService {
         updatedAt: Date;
         email: string | null;
         phone: string | null;
+        _count: {
+            orders: number;
+            users: number;
+        };
         users: {
             id: string;
             email: string;
@@ -26,10 +30,6 @@ export declare class CompaniesService {
             role: string;
             lastLoginAt: Date | null;
         }[];
-        _count: {
-            users: number;
-            orders: number;
-        };
     }>>;
     findOne(id: string, merchantId: string): Promise<{
         merchant: {
@@ -46,14 +46,13 @@ export declare class CompaniesService {
             createdAt: Date;
             updatedAt: Date;
         };
-        users: {
+        orders: {
             id: string;
-            email: string;
-            firstName: string | null;
-            lastName: string | null;
-            isActive: boolean;
-            role: string;
-            lastLoginAt: Date | null;
+            createdAt: Date;
+            shopifyOrderId: bigint;
+            shopifyOrderNumber: string | null;
+            totalPrice: import("@prisma/client-runtime-utils").Decimal | null;
+            financialStatus: string | null;
         }[];
         pricingRules: {
             name: string;
@@ -62,13 +61,14 @@ export declare class CompaniesService {
             discountValue: import("@prisma/client-runtime-utils").Decimal | null;
             priority: number;
         }[];
-        orders: {
+        users: {
             id: string;
-            createdAt: Date;
-            shopifyOrderId: bigint;
-            shopifyOrderNumber: string | null;
-            totalPrice: import("@prisma/client-runtime-utils").Decimal | null;
-            financialStatus: string | null;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+            isActive: boolean;
+            role: string;
+            lastLoginAt: Date | null;
         }[];
     } & {
         name: string;

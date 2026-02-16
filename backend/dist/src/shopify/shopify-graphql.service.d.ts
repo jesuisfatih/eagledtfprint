@@ -8,4 +8,7 @@ export declare class ShopifyGraphqlService {
     query<T>(shop: string, accessToken: string, query: string, variables?: any): Promise<T>;
     getProductsWithVariants(shop: string, accessToken: string, first?: number, cursor?: string): Promise<unknown>;
     getCustomers(shop: string, accessToken: string, first?: number, cursor?: string): Promise<unknown>;
+    getOrders(shop: string, accessToken: string, first?: number, cursor?: string): Promise<unknown>;
+    getCollections(shop: string, accessToken: string, first?: number, cursor?: string): Promise<unknown>;
+    getDiscountCodes(shop: string, accessToken: string, first?: number, cursor?: string): Promise<unknown>;
 }

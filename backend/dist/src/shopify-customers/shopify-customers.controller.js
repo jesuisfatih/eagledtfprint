@@ -14,19 +14,53 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShopifyCustomersController = void 0;
 const common_1 = require("@nestjs/common");
-const shopify_customers_service_1 = require("./shopify-customers.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const customer_intelligence_service_1 = require("../customers/customer-intelligence.service");
+const shopify_customers_service_1 = require("./shopify-customers.service");
 let ShopifyCustomersController = class ShopifyCustomersController {
     shopifyCustomersService;
-    constructor(shopifyCustomersService) {
+    customerIntelligence;
+    constructor(shopifyCustomersService, customerIntelligence) {
         this.shopifyCustomersService = shopifyCustomersService;
+        this.customerIntelligence = customerIntelligence;
     }
-    async findAll(merchantId, search) {
+    async findAll(merchantId, search, segment, churnRisk, clvTier) {
         if (!merchantId) {
             throw new common_1.BadRequestException('Merchant ID required');
         }
-        return this.shopifyCustomersService.findAll(merchantId, { search });
+        return this.shopifyCustomersService.findAll(merchantId, {
+            search,
+            segment,
+            churnRisk,
+            clvTier,
+        });
+    }
+    async getInsightsSummary(merchantId) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        return this.customerIntelligence.getInsightsSummary(merchantId);
+    }
+    async getAtRiskCustomers(merchantId, limit) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        const parsedLimit = limit ? parseInt(limit, 10) : 50;
+        return this.customerIntelligence.getAtRiskCustomers(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 50);
+    }
+    async getBySegment(merchantId, segment, limit) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        const parsedLimit = limit ? parseInt(limit, 10) : 50;
+        return this.customerIntelligence.getCustomersBySegment(merchantId, segment, Number.isFinite(parsedLimit) ? parsedLimit : 50);
+    }
+    async calculateInsights(merchantId) {
+        if (!merchantId) {
+            throw new common_1.BadRequestException('Merchant ID required');
+        }
+        return this.customerIntelligence.calculateInsights(merchantId);
     }
     async findOne(id) {
         return this.shopifyCustomersService.findOne(id);
@@ -43,10 +77,44 @@ __decorate([
     (0, common_1.Get)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
     __param(1, (0, common_1.Query)('search')),
+    __param(2, (0, common_1.Query)('segment')),
+    __param(3, (0, common_1.Query)('churnRisk')),
+    __param(4, (0, common_1.Query)('clvTier')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], ShopifyCustomersController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('insights/summary'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ShopifyCustomersController.prototype, "getInsightsSummary", null);
+__decorate([
+    (0, common_1.Get)('insights/at-risk'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
-], ShopifyCustomersController.prototype, "findAll", null);
+], ShopifyCustomersController.prototype, "getAtRiskCustomers", null);
+__decorate([
+    (0, common_1.Get)('insights/segment/:segment'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __param(1, (0, common_1.Param)('segment')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], ShopifyCustomersController.prototype, "getBySegment", null);
+__decorate([
+    (0, common_1.Post)('insights/calculate'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('merchantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ShopifyCustomersController.prototype, "calculateInsights", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -65,6 +133,7 @@ __decorate([
 exports.ShopifyCustomersController = ShopifyCustomersController = __decorate([
     (0, common_1.Controller)('shopify-customers'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    __metadata("design:paramtypes", [shopify_customers_service_1.ShopifyCustomersService])
+    __metadata("design:paramtypes", [shopify_customers_service_1.ShopifyCustomersService,
+        customer_intelligence_service_1.CustomerIntelligenceService])
 ], ShopifyCustomersController);
 //# sourceMappingURL=shopify-customers.controller.js.map

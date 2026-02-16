@@ -60,6 +60,21 @@ let CustomersSyncWorker = CustomersSyncWorker_1 = class CustomersSyncWorker {
                     const ordersCount = customer.numberOfOrders
                         ? parseInt(customer.numberOfOrders, 10)
                         : 0;
+                    const avgOrderValue = ordersCount > 0 ? totalSpent / ordersCount : 0;
+                    const acceptsMarketing = customer.emailMarketingConsent?.marketingState === 'SUBSCRIBED';
+                    const marketingOptInLevel = customer.emailMarketingConsent?.marketingOptInLevel || null;
+                    const metafields = customer.metafields?.edges?.map((e) => ({
+                        namespace: e.node.namespace,
+                        key: e.node.key,
+                        value: e.node.value,
+                        type: e.node.type,
+                    })) || [];
+                    const lastOrderId = customer.lastOrder?.legacyResourceId
+                        ? BigInt(customer.lastOrder.legacyResourceId)
+                        : null;
+                    const lastOrderAt = customer.lastOrder?.createdAt
+                        ? new Date(customer.lastOrder.createdAt)
+                        : null;
                     await this.prisma.shopifyCustomer.upsert({
                         where: {
                             merchantId_shopifyCustomerId: {
@@ -79,6 +94,17 @@ let CustomersSyncWorker = CustomersSyncWorker_1 = class CustomersSyncWorker {
                             totalSpent,
                             ordersCount,
                             addresses: customer.addresses || [],
+                            verifiedEmail: customer.verifiedEmail,
+                            acceptsMarketing,
+                            marketingOptInLevel,
+                            taxExempt: customer.taxExempt,
+                            state: customer.state,
+                            currency: customer.amountSpent?.currencyCode || null,
+                            locale: customer.locale,
+                            lastOrderId,
+                            lastOrderAt,
+                            averageOrderValue: avgOrderValue,
+                            metafields: metafields.length > 0 ? metafields : null,
                             rawData: customer,
                         },
                         update: {
@@ -91,6 +117,17 @@ let CustomersSyncWorker = CustomersSyncWorker_1 = class CustomersSyncWorker {
                             totalSpent,
                             ordersCount,
                             addresses: customer.addresses || [],
+                            verifiedEmail: customer.verifiedEmail,
+                            acceptsMarketing,
+                            marketingOptInLevel,
+                            taxExempt: customer.taxExempt,
+                            state: customer.state,
+                            currency: customer.amountSpent?.currencyCode || null,
+                            locale: customer.locale,
+                            lastOrderId,
+                            lastOrderAt,
+                            averageOrderValue: avgOrderValue,
+                            metafields: metafields.length > 0 ? metafields : null,
                             rawData: customer,
                             syncedAt: new Date(),
                         },

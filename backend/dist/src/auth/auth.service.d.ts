@@ -1,10 +1,10 @@
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { ShopifyCustomerSyncService } from '../shopify/shopify-customer-sync.service';
 import { ShopifyRestService } from '../shopify/shopify-rest.service';
-import { MailService } from '../mail/mail.service';
-import { RedisService } from '../redis/redis.service';
 export interface JwtPayload {
     sub: string;
     email: string;

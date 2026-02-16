@@ -1,4 +1,4 @@
-import { NotificationsService, NotificationPreferences } from './notifications.service';
+import { NotificationPreferences, NotificationsService } from './notifications.service';
 export declare class NotificationsController {
     private notificationsService;
     constructor(notificationsService: NotificationsService);

@@ -1,26 +1,59 @@
+import { CustomerIntelligenceService } from '../customers/customer-intelligence.service';
 import { ShopifyCustomersService } from './shopify-customers.service';
 export declare class ShopifyCustomersController {
     private shopifyCustomersService;
-    constructor(shopifyCustomersService: ShopifyCustomersService);
-    findAll(merchantId: string, search?: string): Promise<{
-        shopifyCustomerId: string;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        merchantId: string;
-        email: string | null;
-        firstName: string | null;
-        lastName: string | null;
-        phone: string | null;
-        addresses: import("@prisma/client/runtime/client").JsonValue | null;
-        tags: string | null;
-        note: string | null;
-        totalSpent: import("@prisma/client-runtime-utils").Decimal | null;
-        ordersCount: number;
-        rawData: import("@prisma/client/runtime/client").JsonValue | null;
-        syncedAt: Date;
-    }[]>;
-    findOne(id: string): Promise<{
+    private customerIntelligence;
+    constructor(shopifyCustomersService: ShopifyCustomersService, customerIntelligence: CustomerIntelligenceService);
+    findAll(merchantId: string, search?: string, segment?: string, churnRisk?: string, clvTier?: string): Promise<any[]>;
+    getInsightsSummary(merchantId: string): Promise<{
+        totalCustomers: number;
+        analyzedCustomers: number;
+        returningCustomerRate: string | number;
+        averageClv: string | number;
+        averageHealthScore: number;
+        segmentDistribution: {
+            [k: string]: number;
+        };
+        tierDistribution: {
+            [k: string]: number;
+        };
+        riskDistribution: {
+            [k: string]: number;
+        };
+        topChampions: number;
+        atRiskCount: number;
+    }>;
+    getAtRiskCustomers(merchantId: string, limit?: string): Promise<({
+        insight: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            shopifyCustomerId: string;
+            lastOrderAt: Date | null;
+            avgOrderValue: import("@prisma/client-runtime-utils").Decimal | null;
+            firstOrderAt: Date | null;
+            daysSinceLastOrder: number | null;
+            churnRisk: string | null;
+            clvScore: import("@prisma/client-runtime-utils").Decimal | null;
+            projectedClv: import("@prisma/client-runtime-utils").Decimal | null;
+            clvTier: string | null;
+            rfmRecency: number | null;
+            rfmFrequency: number | null;
+            rfmMonetary: number | null;
+            rfmSegment: string | null;
+            healthScore: number | null;
+            avgDaysBetweenOrders: number | null;
+            purchaseFrequency: string | null;
+            preferredCategories: import("@prisma/client/runtime/client").JsonValue | null;
+            preferredVendors: import("@prisma/client/runtime/client").JsonValue | null;
+            maxOrderValue: import("@prisma/client-runtime-utils").Decimal | null;
+            orderTrend: string | null;
+            customerSince: Date | null;
+            isReturning: boolean;
+            deepMetrics: import("@prisma/client/runtime/client").JsonValue | null;
+            calculatedAt: Date;
+        } | null;
+    } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -36,8 +69,82 @@ export declare class ShopifyCustomersController {
         totalSpent: import("@prisma/client-runtime-utils").Decimal | null;
         ordersCount: number;
         rawData: import("@prisma/client/runtime/client").JsonValue | null;
+        verifiedEmail: boolean | null;
+        acceptsMarketing: boolean | null;
+        marketingOptInLevel: string | null;
+        taxExempt: boolean | null;
+        state: string | null;
+        currency: string | null;
+        locale: string | null;
+        lastOrderId: bigint | null;
+        lastOrderAt: Date | null;
+        averageOrderValue: import("@prisma/client-runtime-utils").Decimal | null;
+        metafields: import("@prisma/client/runtime/client").JsonValue | null;
         syncedAt: Date;
-    } | null>;
+    })[]>;
+    getBySegment(merchantId: string, segment: string, limit?: string): Promise<({
+        insight: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            shopifyCustomerId: string;
+            lastOrderAt: Date | null;
+            avgOrderValue: import("@prisma/client-runtime-utils").Decimal | null;
+            firstOrderAt: Date | null;
+            daysSinceLastOrder: number | null;
+            churnRisk: string | null;
+            clvScore: import("@prisma/client-runtime-utils").Decimal | null;
+            projectedClv: import("@prisma/client-runtime-utils").Decimal | null;
+            clvTier: string | null;
+            rfmRecency: number | null;
+            rfmFrequency: number | null;
+            rfmMonetary: number | null;
+            rfmSegment: string | null;
+            healthScore: number | null;
+            avgDaysBetweenOrders: number | null;
+            purchaseFrequency: string | null;
+            preferredCategories: import("@prisma/client/runtime/client").JsonValue | null;
+            preferredVendors: import("@prisma/client/runtime/client").JsonValue | null;
+            maxOrderValue: import("@prisma/client-runtime-utils").Decimal | null;
+            orderTrend: string | null;
+            customerSince: Date | null;
+            isReturning: boolean;
+            deepMetrics: import("@prisma/client/runtime/client").JsonValue | null;
+            calculatedAt: Date;
+        } | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        merchantId: string;
+        shopifyCustomerId: bigint;
+        email: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        phone: string | null;
+        addresses: import("@prisma/client/runtime/client").JsonValue | null;
+        tags: string | null;
+        note: string | null;
+        totalSpent: import("@prisma/client-runtime-utils").Decimal | null;
+        ordersCount: number;
+        rawData: import("@prisma/client/runtime/client").JsonValue | null;
+        verifiedEmail: boolean | null;
+        acceptsMarketing: boolean | null;
+        marketingOptInLevel: string | null;
+        taxExempt: boolean | null;
+        state: string | null;
+        currency: string | null;
+        locale: string | null;
+        lastOrderId: bigint | null;
+        lastOrderAt: Date | null;
+        averageOrderValue: import("@prisma/client-runtime-utils").Decimal | null;
+        metafields: import("@prisma/client/runtime/client").JsonValue | null;
+        syncedAt: Date;
+    })[]>;
+    calculateInsights(merchantId: string): Promise<{
+        processed: number;
+    }>;
+    findOne(id: string): Promise<any>;
     convertToCompany(customerId: string, merchantId: string): Promise<{
         company: {
             name: string;

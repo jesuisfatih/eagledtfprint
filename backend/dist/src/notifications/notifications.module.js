@@ -8,11 +8,12 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsModule = void 0;
 const common_1 = require("@nestjs/common");
-const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
-const notifications_service_1 = require("./notifications.service");
+const jwt_1 = require("@nestjs/jwt");
 const notifications_controller_1 = require("./notifications.controller");
 const notifications_gateway_1 = require("./notifications.gateway");
+const notifications_service_1 = require("./notifications.service");
+const sms_service_1 = require("./sms.service");
 let NotificationsModule = class NotificationsModule {
 };
 exports.NotificationsModule = NotificationsModule;
@@ -28,8 +29,8 @@ exports.NotificationsModule = NotificationsModule = __decorate([
             }),
         ],
         controllers: [notifications_controller_1.NotificationsController],
-        providers: [notifications_service_1.NotificationsService, notifications_gateway_1.NotificationsGateway],
-        exports: [notifications_service_1.NotificationsService, notifications_gateway_1.NotificationsGateway],
+        providers: [notifications_service_1.NotificationsService, notifications_gateway_1.NotificationsGateway, sms_service_1.SmsService],
+        exports: [notifications_service_1.NotificationsService, notifications_gateway_1.NotificationsGateway, sms_service_1.SmsService],
     })
 ], NotificationsModule);
 //# sourceMappingURL=notifications.module.js.map

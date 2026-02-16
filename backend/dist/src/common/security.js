@@ -28,7 +28,7 @@ let SecurityHeadersMiddleware = SecurityHeadersMiddleware_1 = class SecurityHead
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https: blob:",
             "font-src 'self' data:",
-            "connect-src 'self' https://api.eagledtfsupply.com https://*.shopify.com wss://api.eagledtfsupply.com",
+            `connect-src 'self' ${process.env.API_URL || 'http://localhost:4000'} https://*.shopify.com wss://${(process.env.API_URL || '').replace('https://', '')}`,
             "frame-ancestors 'self'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -213,14 +213,13 @@ function detectXss(input) {
     return xssPatterns.some(pattern => pattern.test(input));
 }
 exports.allowedOrigins = [
-    'https://accounts.eagledtfsupply.com',
-    'https://app.eagledtfsupply.com',
-    'https://eagledtfsupply.com',
-    'https://www.eagledtfsupply.com',
+    process.env.ACCOUNTS_URL,
+    process.env.ADMIN_URL,
+    process.env.API_URL,
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:4000',
-];
+].filter(Boolean);
 function isOriginAllowed(origin) {
     if (!origin)
         return false;

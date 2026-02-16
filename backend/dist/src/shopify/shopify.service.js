@@ -60,6 +60,63 @@ let ShopifyService = ShopifyService_1 = class ShopifyService {
     buildAdminGraphQLUrl(shop) {
         return `https://${shop}/admin/api/${this.apiVersion}/graphql.json`;
     }
+    async graphqlRequest(merchantId, query, variables = {}) {
+        const merchant = await this.prisma.merchant.findUnique({ where: { id: merchantId } });
+        if (!merchant)
+            throw new Error('Merchant not found');
+        const url = this.buildAdminGraphQLUrl(merchant.shopDomain);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Shopify-Access-Token': merchant.accessToken,
+            },
+            body: JSON.stringify({ query, variables }),
+        });
+        const body = await response.json();
+        if (body.errors) {
+            this.logger.error(`Shopify GraphQL Error: ${JSON.stringify(body.errors)}`);
+            throw new Error('Shopify API Error');
+        }
+        return body.data;
+    }
+    async sendDraftOrderInvoice(merchantId, shopifyDraftOrderId) {
+        const query = `
+      mutation draftOrderInvoiceSend($id: ID!) {
+        draftOrderInvoiceSend(id: $id) {
+          draftOrder {
+            id
+            invoiceSentAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+        const gid = `gid://shopify/DraftOrder/${shopifyDraftOrderId}`;
+        return this.graphqlRequest(merchantId, query, { id: gid });
+    }
+    async createDraftOrder(merchantId, input) {
+        const query = `
+      mutation draftOrderCreate($input: DraftOrderInput!) {
+        draftOrderCreate(input: $input) {
+          draftOrder {
+            id
+            email
+            totalPrice
+            invoiceSentAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+        return this.graphqlRequest(merchantId, query, { input });
+    }
 };
 exports.ShopifyService = ShopifyService;
 exports.ShopifyService = ShopifyService = ShopifyService_1 = __decorate([

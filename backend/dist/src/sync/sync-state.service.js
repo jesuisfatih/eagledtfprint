@@ -13,7 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SyncStateService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const LOCK_TTL_MS = 10 * 60 * 1000;
+const LOCK_TTL_MS = 30 * 60 * 1000;
 const MAX_CONSECUTIVE_FAILURES = 5;
 let SyncStateService = SyncStateService_1 = class SyncStateService {
     prisma;

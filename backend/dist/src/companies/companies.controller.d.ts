@@ -1,10 +1,12 @@
 import { CompaniesService } from './companies.service';
+import { CompanyIntelligenceService } from './company-intelligence.service';
 import { CompanyUsersService } from './company-users.service';
-import { CreateCompanyDto, UpdateCompanyDto, RejectCompanyDto, InviteUserDto, GetCompaniesQueryDto } from './dto/company.dto';
+import { CreateCompanyDto, GetCompaniesQueryDto, InviteUserDto, RejectCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 export declare class CompaniesController {
     private companiesService;
     private companyUsersService;
-    constructor(companiesService: CompaniesService, companyUsersService: CompanyUsersService);
+    private companyIntelligence;
+    constructor(companiesService: CompaniesService, companyUsersService: CompanyUsersService, companyIntelligence: CompanyIntelligenceService);
     findAll(merchantId: string, query: GetCompaniesQueryDto): Promise<import("../common/utils/pagination.util").PaginatedResponse<{
         name: string;
         id: string;
@@ -13,6 +15,10 @@ export declare class CompaniesController {
         updatedAt: Date;
         email: string | null;
         phone: string | null;
+        _count: {
+            orders: number;
+            users: number;
+        };
         users: {
             id: string;
             email: string;
@@ -22,10 +28,6 @@ export declare class CompaniesController {
             role: string;
             lastLoginAt: Date | null;
         }[];
-        _count: {
-            users: number;
-            orders: number;
-        };
     }>>;
     getStats(merchantId: string): Promise<{
         total: number;
@@ -33,6 +35,137 @@ export declare class CompaniesController {
         pending: number;
         suspended: number;
         totalUsers: number;
+    }>;
+    getIntelligenceDashboard(merchantId: string): Promise<{
+        summary: {
+            totalCompanies: number;
+            activeCompanies: number;
+            totalRevenue: number;
+            totalOrders: number;
+            avgRevenuePerCompany: number;
+            avgOrdersPerCompany: number;
+        };
+        segmentDistribution: Record<string, number>;
+        intentDistribution: Record<string, number>;
+        topByRevenue: {
+            id: string;
+            name: string;
+            revenue: number;
+            orders: number;
+            engagementScore: number;
+            segment: string;
+            buyerIntent: string;
+            churnRisk: number;
+            lastOrderAt: Date | null;
+        }[];
+        atRisk: {
+            id: string;
+            name: string;
+            churnRisk: number;
+            daysSinceLastOrder: number | null;
+            totalRevenue: number;
+            segment: string;
+        }[];
+        growthCompanies: {
+            id: string;
+            name: string;
+            engagementScore: number;
+            buyerIntent: string;
+            totalProductViews: number;
+            totalAddToCarts: number;
+            upsellPotential: number;
+        }[];
+        allCompanies: {
+            id: string;
+            name: string;
+            email: string | null;
+            status: string;
+            engagementScore: number;
+            buyerIntent: string;
+            segment: string;
+            totalOrders: number;
+            totalRevenue: number;
+            avgOrderValue: number;
+            churnRisk: number;
+            upsellPotential: number;
+            daysSinceLastOrder: number | null;
+            lastActiveAt: Date | null;
+            lastOrderAt: Date | null;
+        }[];
+    }>;
+    getCompanyIntelligence(merchantId: string, companyId: string): Promise<{
+        intelligence: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            merchantId: string;
+            lastOrderAt: Date | null;
+            companyId: string;
+            totalPageViews: number;
+            totalProductViews: number;
+            totalAddToCarts: number;
+            totalOrders: number;
+            totalRevenue: import("@prisma/client-runtime-utils").Decimal;
+            engagementScore: number;
+            buyerIntent: string;
+            segment: string;
+            totalVisitors: number;
+            totalSessions: number;
+            avgSessionDuration: number;
+            avgOrderValue: import("@prisma/client-runtime-utils").Decimal;
+            topViewedProducts: import("@prisma/client/runtime/client").JsonValue | null;
+            topPurchasedProducts: import("@prisma/client/runtime/client").JsonValue | null;
+            topCategories: import("@prisma/client/runtime/client").JsonValue | null;
+            preferredBrands: import("@prisma/client/runtime/client").JsonValue | null;
+            lastActiveAt: Date | null;
+            firstOrderAt: Date | null;
+            daysSinceLastOrder: number | null;
+            orderFrequencyDays: number | null;
+            suggestedDiscount: number | null;
+            suggestedProducts: import("@prisma/client/runtime/client").JsonValue | null;
+            churnRisk: number;
+            upsellPotential: number;
+        } | null;
+        recentOrders: {
+            id: string;
+            orderNumber: string | null;
+            totalPrice: import("@prisma/client-runtime-utils").Decimal | null;
+            financialStatus: string | null;
+            fulfillmentStatus: string | null;
+            createdAt: Date;
+        }[];
+        recentSessions: {
+            id: string;
+            pageViews: number;
+            productViews: number;
+            duration: number;
+            landingPage: string | null;
+            startedAt: Date;
+        }[];
+        monthlyRevenue: {
+            month: string;
+            revenue: number;
+            orders: number;
+        }[];
+        userActivity: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.VisitorSessionGroupByOutputType, "companyUserId"[]> & {
+            _count: number;
+            _sum: {
+                pageViews: number | null;
+                productViews: number | null;
+                addToCarts: number | null;
+                durationSeconds: number | null;
+            };
+        })[];
+        cartActivity: {
+            total: number;
+            draft: number;
+            submitted: number;
+            converted: number;
+        };
+    }>;
+    calculateIntelligence(merchantId: string): Promise<{
+        processed: number;
+        total: number;
     }>;
     findOne(id: string, merchantId: string): Promise<{
         merchant: {
@@ -49,14 +182,13 @@ export declare class CompaniesController {
             createdAt: Date;
             updatedAt: Date;
         };
-        users: {
+        orders: {
             id: string;
-            email: string;
-            firstName: string | null;
-            lastName: string | null;
-            isActive: boolean;
-            role: string;
-            lastLoginAt: Date | null;
+            createdAt: Date;
+            shopifyOrderId: bigint;
+            shopifyOrderNumber: string | null;
+            totalPrice: import("@prisma/client-runtime-utils").Decimal | null;
+            financialStatus: string | null;
         }[];
         pricingRules: {
             name: string;
@@ -65,13 +197,14 @@ export declare class CompaniesController {
             discountValue: import("@prisma/client-runtime-utils").Decimal | null;
             priority: number;
         }[];
-        orders: {
+        users: {
             id: string;
-            createdAt: Date;
-            shopifyOrderId: bigint;
-            shopifyOrderNumber: string | null;
-            totalPrice: import("@prisma/client-runtime-utils").Decimal | null;
-            financialStatus: string | null;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+            isActive: boolean;
+            role: string;
+            lastLoginAt: Date | null;
         }[];
     } & {
         name: string;

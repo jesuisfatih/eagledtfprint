@@ -9,8 +9,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchedulerModule = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
-const sync_scheduler_1 = require("./sync.scheduler");
+const event_bus_module_1 = require("../event-bus/event-bus.module");
+const prisma_module_1 = require("../prisma/prisma.module");
+const shopify_customers_module_1 = require("../shopify-customers/shopify-customers.module");
+const shopify_module_1 = require("../shopify/shopify.module");
 const sync_module_1 = require("../sync/sync.module");
+const marketing_scheduler_1 = require("./marketing.scheduler");
+const sync_scheduler_1 = require("./sync.scheduler");
 let SchedulerModule = class SchedulerModule {
 };
 exports.SchedulerModule = SchedulerModule;
@@ -19,8 +24,12 @@ exports.SchedulerModule = SchedulerModule = __decorate([
         imports: [
             schedule_1.ScheduleModule.forRoot(),
             sync_module_1.SyncModule,
+            shopify_customers_module_1.ShopifyCustomersModule,
+            shopify_module_1.ShopifyModule,
+            prisma_module_1.PrismaModule,
+            event_bus_module_1.EventBusModule,
         ],
-        providers: [sync_scheduler_1.SyncScheduler],
+        providers: [sync_scheduler_1.SyncScheduler, marketing_scheduler_1.MarketingScheduler],
     })
 ], SchedulerModule);
 //# sourceMappingURL=scheduler.module.js.map

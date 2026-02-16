@@ -11,9 +11,9 @@ export declare class WishlistService {
             productTitle: string;
             variantTitle: string | null;
             price: number;
+            addedAt: Date;
             productImage: string | null;
             wishlistId: string;
-            addedAt: Date;
         }[];
     } & {
         name: string;
@@ -31,9 +31,9 @@ export declare class WishlistService {
         productTitle: string;
         variantTitle: string | null;
         price: number;
+        addedAt: Date;
         productImage: string | null;
         wishlistId: string;
-        addedAt: Date;
     }[]>;
     addToWishlist(userId: string, companyId: string, merchantId: string, dto: AddToWishlistDto): Promise<{
         id: string;
@@ -42,9 +42,9 @@ export declare class WishlistService {
         productTitle: string;
         variantTitle: string | null;
         price: number;
+        addedAt: Date;
         productImage: string | null;
         wishlistId: string;
-        addedAt: Date;
     }>;
     removeFromWishlist(userId: string, productId: string, merchantId: string): Promise<{
         id: string;
@@ -53,9 +53,9 @@ export declare class WishlistService {
         productTitle: string;
         variantTitle: string | null;
         price: number;
+        addedAt: Date;
         productImage: string | null;
         wishlistId: string;
-        addedAt: Date;
     }>;
     clearWishlist(userId: string, merchantId: string): Promise<import("@prisma/client").Prisma.BatchPayload | undefined>;
     isInWishlist(userId: string, productId: string, merchantId: string): Promise<boolean>;

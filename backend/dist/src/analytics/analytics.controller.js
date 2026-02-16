@@ -14,9 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnalyticsController = void 0;
 const common_1 = require("@nestjs/common");
-const analytics_service_1 = require("./analytics.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const analytics_service_1 = require("./analytics.service");
 let AnalyticsController = class AnalyticsController {
     analyticsService;
     constructor(analyticsService) {
@@ -38,13 +38,15 @@ let AnalyticsController = class AnalyticsController {
         if (!merchantId) {
             throw new common_1.BadRequestException('Merchant ID required');
         }
-        return this.analyticsService.getTopProducts(merchantId, limit ? parseInt(limit) : 10);
+        const parsedLimit = limit ? parseInt(limit, 10) : 10;
+        return this.analyticsService.getTopProducts(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 10);
     }
     async getTopCompanies(merchantId, limit) {
         if (!merchantId) {
             throw new common_1.BadRequestException('Merchant ID required');
         }
-        return this.analyticsService.getTopCompanies(merchantId, limit ? parseInt(limit) : 10);
+        const parsedLimit = limit ? parseInt(limit, 10) : 10;
+        return this.analyticsService.getTopCompanies(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 10);
     }
 };
 exports.AnalyticsController = AnalyticsController;

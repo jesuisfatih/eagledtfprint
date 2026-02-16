@@ -104,6 +104,7 @@ export declare class FingerprintService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        lastOrderAt: Date | null;
         companyId: string;
         totalPageViews: number;
         totalProductViews: number;
@@ -123,7 +124,6 @@ export declare class FingerprintService {
         preferredBrands: import("@prisma/client/runtime/client").JsonValue | null;
         lastActiveAt: Date | null;
         firstOrderAt: Date | null;
-        lastOrderAt: Date | null;
         daysSinceLastOrder: number | null;
         orderFrequencyDays: number | null;
         suggestedDiscount: number | null;
@@ -141,6 +141,7 @@ export declare class FingerprintService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        lastOrderAt: Date | null;
         companyId: string;
         totalPageViews: number;
         totalProductViews: number;
@@ -160,7 +161,6 @@ export declare class FingerprintService {
         preferredBrands: import("@prisma/client/runtime/client").JsonValue | null;
         lastActiveAt: Date | null;
         firstOrderAt: Date | null;
-        lastOrderAt: Date | null;
         daysSinceLastOrder: number | null;
         orderFrequencyDays: number | null;
         suggestedDiscount: number | null;
@@ -209,6 +209,7 @@ export declare class FingerprintService {
         createdAt: Date;
         updatedAt: Date;
         merchantId: string;
+        shopifyCustomerId: bigint | null;
         companyId: string | null;
         companyUserId: string | null;
         sessionId: string;
@@ -248,6 +249,7 @@ export declare class FingerprintService {
     processHeartbeat(merchantId: string, data: {
         sessionId: string;
         fingerprintHash: string;
+        shopifyCustomerId?: bigint;
         eagleToken?: string;
         status: string;
         timestamp: number;
@@ -269,6 +271,7 @@ export declare class FingerprintService {
         totalAway: number;
         totalVisitors: number;
         identifiedCount: number;
+        loggedInCount: number;
         activeCompanyCount: number;
         visitors: any[];
     }>;

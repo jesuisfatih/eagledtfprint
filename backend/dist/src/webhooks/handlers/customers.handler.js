@@ -12,15 +12,18 @@ var CustomersHandler_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomersHandler = void 0;
 const common_1 = require("@nestjs/common");
+const dittofeed_service_1 = require("../../dittofeed/dittofeed.service");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const shopify_service_1 = require("../../shopify/shopify.service");
 let CustomersHandler = CustomersHandler_1 = class CustomersHandler {
     prisma;
     shopifyService;
+    dittofeedService;
     logger = new common_1.Logger(CustomersHandler_1.name);
-    constructor(prisma, shopifyService) {
+    constructor(prisma, shopifyService, dittofeedService) {
         this.prisma = prisma;
         this.shopifyService = shopifyService;
+        this.dittofeedService = dittofeedService;
     }
     async handleCustomerCreate(customerData, headers) {
         try {
@@ -66,6 +69,25 @@ let CustomersHandler = CustomersHandler_1 = class CustomersHandler {
                 },
             });
             this.logger.log(`Customer synced: ${customerData.email}`);
+            if (customerData.email) {
+                try {
+                    await this.dittofeedService.identifyUser(`shopify_${customerData.id}`, {
+                        email: customerData.email,
+                        firstName: customerData.first_name || '',
+                        lastName: customerData.last_name || '',
+                        phone: customerData.phone || '',
+                        total_orders: customerData.orders_count || 0,
+                        total_spent: parseFloat(customerData.total_spent || '0'),
+                        merchant_id: merchant.id,
+                        merchant_domain: merchant.shopDomain,
+                        platform: 'eagle-engine',
+                    });
+                    this.logger.log(`Dittofeed: Customer identified — ${customerData.email}`);
+                }
+                catch (dfErr) {
+                    this.logger.warn(`Dittofeed identify failed for ${customerData.email}: ${dfErr.message}`);
+                }
+            }
             return { success: true };
         }
         catch (error) {
@@ -78,6 +100,7 @@ exports.CustomersHandler = CustomersHandler;
 exports.CustomersHandler = CustomersHandler = CustomersHandler_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        shopify_service_1.ShopifyService])
+        shopify_service_1.ShopifyService,
+        dittofeed_service_1.DittofeedService])
 ], CustomersHandler);
 //# sourceMappingURL=customers.handler.js.map

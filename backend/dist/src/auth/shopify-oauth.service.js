@@ -50,9 +50,9 @@ exports.ShopifyOauthService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
-const prisma_service_1 = require("../prisma/prisma.service");
 const axios_1 = __importDefault(require("axios"));
 const crypto = __importStar(require("crypto"));
+const prisma_service_1 = require("../prisma/prisma.service");
 let ShopifyOauthService = ShopifyOauthService_1 = class ShopifyOauthService {
     config;
     prisma;
@@ -94,6 +94,7 @@ let ShopifyOauthService = ShopifyOauthService_1 = class ShopifyOauthService {
             .createHmac('sha256', this.apiSecret)
             .update(queryString)
             .digest('hex');
+        this.logger.debug(`HMAC verify: computed=${hash}, received=${hmac}, match=${hash === hmac}`);
         return hash === hmac;
     }
     async getAccessToken(shop, code) {

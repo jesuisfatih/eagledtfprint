@@ -666,12 +666,9 @@ export class ShippingService {
         id: true,
         shopifyOrderNumber: true,
         email: true,
-        customerName: true,
         shippingAddress: true,
         fulfillmentStatus: true,
         lineItems: true,
-        shippingTrackingNumber: true,
-        shippingLabelUrl: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -681,15 +678,15 @@ export class ShippingService {
       return {
         id: o.id,
         shopifyOrderNumber: o.shopifyOrderNumber,
-        customerName: o.customerName || o.email,
+        customerName: o.email,
         address: addr.address1 || '',
         city: addr.city || '',
         state: addr.province_code || addr.province || '',
         zip: addr.zip || '',
         totalItems: Array.isArray(o.lineItems) ? o.lineItems.length : 0,
         status: o.fulfillmentStatus,
-        trackingNumber: o.shippingTrackingNumber,
-        labelUrl: o.shippingLabelUrl,
+        trackingNumber: null,
+        labelUrl: null,
       };
     });
   }

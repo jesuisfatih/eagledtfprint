@@ -23,7 +23,196 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
         this.httpService = httpService;
         this.shopifyService = shopifyService;
     }
-    async createDiscountCode(shop, accessToken, code, value, valueType) {
+    async fetchAllDiscountCodes(shop, accessToken) {
+        const url = this.shopifyService.buildAdminGraphQLUrl(shop);
+        const allDiscounts = [];
+        let cursor = null;
+        let hasNextPage = true;
+        while (hasNextPage) {
+            const query = `
+        query GetDiscounts($first: Int!, $after: String) {
+          codeDiscountNodes(first: $first, after: $after) {
+            edges {
+              cursor
+              node {
+                id
+                codeDiscount {
+                  ... on DiscountCodeBasic {
+                    title
+                    status
+                    startsAt
+                    endsAt
+                    usageLimit
+                    asyncUsageCount
+                    appliesOncePerCustomer
+                    combinesWith {
+                      orderDiscounts
+                      productDiscounts
+                      shippingDiscounts
+                    }
+                    customerGets {
+                      value {
+                        ... on DiscountPercentage {
+                          percentage
+                        }
+                        ... on DiscountAmount {
+                          amount { amount currencyCode }
+                          appliesOnEachItem
+                        }
+                      }
+                    }
+                    codes(first: 5) {
+                      edges {
+                        node { code }
+                      }
+                    }
+                    customerSelection {
+                      ... on DiscountCustomerAll { allCustomers }
+                    }
+                    minimumRequirement {
+                      ... on DiscountMinimumSubtotal {
+                        greaterThanOrEqualToSubtotal { amount currencyCode }
+                      }
+                      ... on DiscountMinimumQuantity {
+                        greaterThanOrEqualToQuantity
+                      }
+                    }
+                  }
+                  ... on DiscountCodeBxgy {
+                    title
+                    status
+                    startsAt
+                    endsAt
+                    usageLimit
+                    asyncUsageCount
+                    codes(first: 5) {
+                      edges {
+                        node { code }
+                      }
+                    }
+                  }
+                  ... on DiscountCodeFreeShipping {
+                    title
+                    status
+                    startsAt
+                    endsAt
+                    usageLimit
+                    asyncUsageCount
+                    codes(first: 5) {
+                      edges {
+                        node { code }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      `;
+            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post(url, { query, variables: { first: 50, after: cursor } }, {
+                headers: {
+                    'X-Shopify-Access-Token': accessToken,
+                    'Content-Type': 'application/json',
+                },
+            }));
+            const data = response.data.data?.codeDiscountNodes;
+            const edges = data?.edges || [];
+            for (const edge of edges) {
+                const discount = edge.node?.codeDiscount;
+                if (discount) {
+                    allDiscounts.push({
+                        shopifyId: edge.node.id,
+                        title: discount.title,
+                        status: discount.status,
+                        codes: discount.codes?.edges?.map((e) => e.node.code) || [],
+                        startsAt: discount.startsAt,
+                        endsAt: discount.endsAt,
+                        usageLimit: discount.usageLimit,
+                        usageCount: discount.asyncUsageCount,
+                        appliesOncePerCustomer: discount.appliesOncePerCustomer,
+                        combinesWith: discount.combinesWith,
+                        value: discount.customerGets?.value,
+                        minimumRequirement: discount.minimumRequirement,
+                    });
+                }
+            }
+            hasNextPage = data?.pageInfo?.hasNextPage || false;
+            cursor = data?.pageInfo?.endCursor || null;
+        }
+        this.logger.log(`Fetched ${allDiscounts.length} discount codes from ${shop}`);
+        return allDiscounts;
+    }
+    async fetchAutoDiscounts(shop, accessToken) {
+        const url = this.shopifyService.buildAdminGraphQLUrl(shop);
+        const query = `
+      query GetAutoDiscounts($first: Int!) {
+        automaticDiscountNodes(first: $first) {
+          edges {
+            node {
+              id
+              automaticDiscount {
+                ... on DiscountAutomaticBasic {
+                  title
+                  status
+                  startsAt
+                  endsAt
+                  minimumRequirement {
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal { amount currencyCode }
+                    }
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                  }
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount { amount currencyCode }
+                        appliesOnEachItem
+                      }
+                    }
+                  }
+                }
+                ... on DiscountAutomaticBxgy {
+                  title
+                  status
+                  startsAt
+                  endsAt
+                }
+                ... on DiscountAutomaticFreeShipping {
+                  title
+                  status
+                  startsAt
+                  endsAt
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+        const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post(url, { query, variables: { first: 50 } }, {
+            headers: {
+                'X-Shopify-Access-Token': accessToken,
+                'Content-Type': 'application/json',
+            },
+        }));
+        const edges = response.data.data?.automaticDiscountNodes?.edges || [];
+        return edges.map((e) => ({
+            shopifyId: e.node.id,
+            type: 'automatic',
+            ...e.node.automaticDiscount,
+        }));
+    }
+    async createDiscountCode(shop, accessToken, code, value, valueType, options) {
         const url = this.shopifyService.buildAdminGraphQLUrl(shop);
         const customerGets = valueType === 'percentage'
             ? {
@@ -45,6 +234,12 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
                     all: true,
                 },
             };
+        const customerSelection = options?.customerIds?.length
+            ? { customers: { add: options.customerIds } }
+            : { all: true };
+        const minimumRequirement = options?.minimumAmount
+            ? { subtotal: { greaterThanOrEqualToSubtotal: options.minimumAmount.toString() } }
+            : undefined;
         const mutation = `
       mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
         discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
@@ -53,6 +248,7 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
             codeDiscount {
               ... on DiscountCodeBasic {
                 title
+                status
                 codes(first: 1) {
                   nodes {
                     code
@@ -72,15 +268,13 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
     `;
         const variables = {
             basicCodeDiscount: {
-                title: `Eagle B2B - ${code}`,
+                title: options?.title || `Eagle System - ${code}`,
                 code: code,
                 startsAt: new Date().toISOString(),
-                endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                usageLimit: 1,
-                appliesOncePerCustomer: false,
-                customerSelection: {
-                    all: true,
-                },
+                endsAt: options?.endsAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                usageLimit: options?.usageLimit ?? 1,
+                appliesOncePerCustomer: options?.appliesOncePerCustomer ?? false,
+                customerSelection,
                 customerGets,
                 combinesWith: {
                     orderDiscounts: false,
@@ -89,6 +283,9 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
                 },
             },
         };
+        if (minimumRequirement) {
+            variables.basicCodeDiscount.minimumRequirement = minimumRequirement;
+        }
         try {
             const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post(url, { query: mutation, variables }, {
                 headers: {
@@ -107,12 +304,23 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
                 discountId: discountNode?.id,
                 discountCodeId: discountNode?.codeDiscount?.codes?.nodes?.[0]?.id,
                 code,
+                status: discountNode?.codeDiscount?.status,
             };
         }
         catch (error) {
             this.logger.error('Failed to create Shopify discount', error.response?.data || error.message);
             throw error;
         }
+    }
+    async createCustomerDiscount(shop, accessToken, params) {
+        return this.createDiscountCode(shop, accessToken, params.code, params.percentage, 'percentage', {
+            title: params.title,
+            endsAt: new Date(Date.now() + (params.expiresInHours || 72) * 60 * 60 * 1000).toISOString(),
+            usageLimit: 1,
+            appliesOncePerCustomer: true,
+            minimumAmount: params.minimumAmount,
+            customerIds: [params.customerGid],
+        });
     }
     async deleteDiscountCode(shop, accessToken, discountId) {
         const url = this.shopifyService.buildAdminGraphQLUrl(shop);
@@ -146,6 +354,40 @@ let ShopifyAdminDiscountService = ShopifyAdminDiscountService_1 = class ShopifyA
             this.logger.error('Failed to delete Shopify discount', error.response?.data || error.message);
             throw error;
         }
+    }
+    async getDiscountAnalytics(shop, accessToken, discountId) {
+        const url = this.shopifyService.buildAdminGraphQLUrl(shop);
+        const query = `
+      query GetDiscountDetail($id: ID!) {
+        codeDiscountNode(id: $id) {
+          id
+          codeDiscount {
+            ... on DiscountCodeBasic {
+              title
+              status
+              asyncUsageCount
+              startsAt
+              endsAt
+              codes(first: 10) {
+                edges {
+                  node {
+                    code
+                    asyncUsageCount
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+        const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post(url, { query, variables: { id: discountId } }, {
+            headers: {
+                'X-Shopify-Access-Token': accessToken,
+                'Content-Type': 'application/json',
+            },
+        }));
+        return response.data.data?.codeDiscountNode;
     }
 };
 exports.ShopifyAdminDiscountService = ShopifyAdminDiscountService;

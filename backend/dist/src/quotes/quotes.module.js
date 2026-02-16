@@ -8,13 +8,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QuotesModule = void 0;
 const common_1 = require("@nestjs/common");
-const quotes_service_1 = require("./quotes.service");
 const quotes_controller_1 = require("./quotes.controller");
+const quotes_service_1 = require("./quotes.service");
+const shopify_module_1 = require("../shopify/shopify.module");
 let QuotesModule = class QuotesModule {
 };
 exports.QuotesModule = QuotesModule;
 exports.QuotesModule = QuotesModule = __decorate([
     (0, common_1.Module)({
+        imports: [shopify_module_1.ShopifyModule],
         controllers: [quotes_controller_1.QuotesController],
         providers: [quotes_service_1.QuotesService],
         exports: [quotes_service_1.QuotesService],

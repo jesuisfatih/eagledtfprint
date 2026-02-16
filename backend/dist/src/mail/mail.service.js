@@ -102,10 +102,11 @@ let MailService = MailService_1 = class MailService {
         }
     }
     async sendInvitation(email, companyName, invitationUrl) {
-        const subject = `You've been invited to join ${companyName} on Eagle B2B`;
+        const brandName = this.fromName;
+        const subject = `You've been invited to join ${companyName} on ${brandName}`;
         const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #1a1a2e;">Welcome to Eagle B2B</h1>
+        <h1 style="color: #1a1a2e;">Welcome to ${brandName}</h1>
         <p>You've been invited to join <strong>${companyName}</strong> as a team member.</p>
         <p>Click the button below to complete your registration:</p>
         <a href="${invitationUrl}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0;">
@@ -130,7 +131,7 @@ let MailService = MailService_1 = class MailService {
         return this.sendMail(email, subject, html);
     }
     async sendPasswordReset(email, resetUrl) {
-        const subject = 'Reset Your Password - Eagle B2B';
+        const subject = `Reset Your Password - ${this.fromName}`;
         const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #1a1a2e;">Reset Your Password</h1>
@@ -146,7 +147,7 @@ let MailService = MailService_1 = class MailService {
         return { ...result, resetUrl };
     }
     async sendVerificationCode(email, code) {
-        const subject = 'Your Verification Code - Eagle B2B';
+        const subject = `Your Verification Code - ${this.fromName}`;
         const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #1a1a2e;">Verification Code</h1>
