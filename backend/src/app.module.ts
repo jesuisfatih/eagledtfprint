@@ -60,18 +60,18 @@ import { WishlistModule } from './wishlist/wishlist.module';
     ThrottlerModule.forRoot([
       {
         name: 'short',
-        ttl: 1000, // 1 second
-        limit: 10, // 10 requests per second
+        ttl: 1000,
+        limit: 30, // Increased from 10
       },
       {
         name: 'medium',
-        ttl: 10000, // 10 seconds
-        limit: 50, // 50 requests per 10 seconds
+        ttl: 10000,
+        limit: 100, // Increased from 50
       },
       {
         name: 'long',
-        ttl: 60000, // 60 seconds
-        limit: 100, // 100 requests per minute
+        ttl: 60000,
+        limit: 300, // Increased from 100
       },
     ]),
     BullModule.forRootAsync({

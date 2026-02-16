@@ -343,24 +343,32 @@ export class MultiStoreService {
       select: {
         id: true,
         shopDomain: true,
-        createdAt: true,
+        lastSyncAt: true,
         _count: {
           select: {
             orders: true,
-            customers: true,
           },
+        },
+        orders: {
+          select: { totalPrice: true },
         },
       },
     });
 
-    return merchants.map((m) => ({
-      merchantId: m.id,
-      shopName: m.shopDomain,
-      domain: m.shopDomain,
-      createdAt: m.createdAt,
-      totalOrders: m._count.orders,
-      totalCustomers: m._count.customers,
-    }));
+    return merchants.map((m) => {
+      const revenue = m.orders.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
+
+      return {
+        id: m.id,
+        name: m.shopDomain || 'Unknown Store',
+        domain: m.shopDomain || '',
+        shopifyStoreUrl: `${m.shopDomain}.myshopify.com`,
+        status: 'CONNECTED' as const,
+        lastSyncAt: m.lastSyncAt?.toISOString() || new Date().toISOString(),
+        orderCount: m._count.orders,
+        revenue: revenue,
+      };
+    });
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
