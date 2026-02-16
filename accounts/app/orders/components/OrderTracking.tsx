@@ -72,7 +72,7 @@ export default function OrderTracking({ order }: OrderTrackingProps) {
                     <div style={{
                       fontSize: 10, fontWeight: isCurrent ? 700 : 500,
                       color: isCurrent ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                      textTransform: 'uppercase', letter-spacing: '0.2px'
+                      textTransform: 'uppercase', letterSpacing: '0.2px'
                     }}>
                       {stage.label}
                     </div>
