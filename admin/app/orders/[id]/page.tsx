@@ -195,6 +195,37 @@ export default function OrderDetailPage() {
             </div>
           )}
 
+          {/* Penpot / Linked Designs */}
+          {order.linkedDesigns && order.linkedDesigns.length > 0 && (
+            <div className="apple-card" style={{ marginBottom: 20, border: '1px solid rgba(0, 209, 178, 0.2)' }}>
+              <div className="apple-card-header" style={{ background: 'rgba(0, 209, 178, 0.04)' }}>
+                <h3 className="apple-card-title" style={{ color: '#00d1b2' }}>
+                  <i className="ti ti-vector" style={{ marginRight: 8 }} />Penpot Designs
+                </h3>
+              </div>
+              <div className="apple-card-body">
+                {order.linkedDesigns.map((d: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 8, background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                       {d.previewUrl ? (
+                         <img src={d.previewUrl} style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} />
+                       ) : (
+                         <div style={{ width: 40, height: 40, borderRadius: 4, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <i className="ti ti-photo" />
+                         </div>
+                       )}
+                       <div>
+                         <div style={{ fontWeight: 600 }}>{d.title || 'Untitled Project'}</div>
+                         <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>ID: {d.penpotProjectId}</div>
+                       </div>
+                    </div>
+                    <div className={`badge-apple ${d.status === 'approved' ? 'success' : 'info'}`}>{d.status}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Design Files / Upload Files */}
           {designFiles.length > 0 && (
             <div className="apple-card" style={{ marginBottom: 20, border: '1px solid rgba(88,86,214,0.2)' }}>
@@ -305,6 +336,48 @@ export default function OrderDetailPage() {
             </div>
           )}
 
+          {/* Production Status / Manufacturing Jobs */}
+          {order.productionJobs && order.productionJobs.length > 0 && (
+            <div className="apple-card" style={{ marginBottom: 20, border: '1px solid rgba(255,45,85,0.2)' }}>
+              <div className="apple-card-header" style={{ background: 'rgba(255,45,85,0.04)' }}>
+                <h3 className="apple-card-title" style={{ color: '#ff2d55' }}>
+                  <i className="ti ti-printer" style={{ marginRight: 8 }} />Production Status
+                </h3>
+                <Link href="/production" className="btn-apple ghost small" style={{ marginLeft: 'auto', textDecoration: 'none' }}>
+                  View All Jobs →
+                </Link>
+              </div>
+              <div className="apple-card-body">
+                {order.productionJobs.map((job: any, i: number) => (
+                  <div key={i} style={{
+                    padding: 16, background: 'var(--bg-secondary)', borderRadius: 10,
+                    marginBottom: i < order.productionJobs.length - 1 ? 12 : 0,
+                    borderLeft: `4px solid ${job.status === 'COMPLETED' ? '#34c759' : '#ff2d55'}`
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 600 }}>Job #{job.id.substring(0, 8)}</span>
+                      <span className={`badge-apple ${job.status === 'COMPLETED' ? 'success' : 'warning'}`}>
+                        {job.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                      <div>
+                        <div style={{ color: 'var(--text-tertiary)', marginBottom: 2 }}>Printer</div>
+                        <div style={{ fontWeight: 500 }}>{job.printerName || 'Unassigned'}</div>
+                      </div>
+                      {job.estimatedCompletionAt && (
+                        <div>
+                          <div style={{ color: 'var(--text-tertiary)', marginBottom: 2 }}>Est. Completion</div>
+                          <div>{new Date(job.estimatedCompletionAt).toLocaleString()}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Line Items */}
           <div className="apple-card" style={{ marginBottom: 20 }}>
             <div className="apple-card-header">
@@ -405,6 +478,35 @@ export default function OrderDetailPage() {
                         <strong>Items:</strong> {f.lineItems.map((li: any) => `${li.title} ×${li.quantity}`).join(', ')}
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Customer Notifications / Activity Log */}
+          {order.activityLogs && order.activityLogs.length > 0 && (
+            <div className="apple-card" style={{ marginBottom: 20 }}>
+              <div className="apple-card-header">
+                <h3 className="apple-card-title"><i className="ti ti-bell-ringing" style={{ marginRight: 8 }} />Notifications</h3>
+              </div>
+              <div className="apple-card-body">
+                {order.activityLogs.map((log: any, i: number) => (
+                  <div key={i} style={{
+                    padding: 12, borderBottom: i < order.activityLogs.length - 1 ? '1px solid var(--border-light)' : 'none',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: 13 }}>
+                        {log.eventType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        Via Dittofeed
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {fmtDate(log.createdAt)}
+                    </div>
                   </div>
                 ))}
               </div>

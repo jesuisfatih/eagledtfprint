@@ -55,7 +55,7 @@ export default function DesignProjectsPage() {
           [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 380, borderRadius: 20 }} />)
         ) : projects.length === 0 ? (
           <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-             <i className="ti ti-palette" className="empty-state-icon" />
+             <i className="ti ti-palette empty-state-icon" />
              <h3 className="empty-state-title">No design projects found</h3>
           </div>
         ) : (
@@ -97,8 +97,32 @@ export default function DesignProjectsPage() {
                 </div>
 
                 <div className="flex gap-8 mt-16">
-                   <button className="btn-apple primary" style={{ flex: 1 }}>Approve</button>
-                   <button className="btn-apple secondary" style={{ flex: 1 }}>Edit in Penpot</button>
+                   <button
+                     className="btn-apple primary"
+                     style={{ flex: 1 }}
+                     onClick={async () => {
+                       const res = await adminFetch(`/api/v1/penpot/projects/${p.id}/status`, {
+                         method: 'POST',
+                         body: JSON.stringify({ status: 'APPROVED' })
+                       });
+                       if (res.ok) loadProjects();
+                     }}
+                   >
+                     Approve
+                   </button>
+                   <button
+                     className="btn-apple secondary"
+                     style={{ flex: 1 }}
+                     onClick={async () => {
+                       const res = await adminFetch('/api/v1/penpot/dashboard-url');
+                       if (res.ok) {
+                         const { url } = await res.json();
+                         window.open(url, '_blank');
+                       }
+                     }}
+                   >
+                     Edit in Penpot
+                   </button>
                 </div>
               </div>
             </div>

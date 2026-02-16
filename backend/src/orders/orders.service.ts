@@ -102,7 +102,7 @@ export class OrdersService {
   // ===================================================
   // MAP ORDER TO FRONTEND FORMAT
   // ===================================================
-  private mapOrder(order: any, pickupOrder?: any) {
+  private mapOrder(order: any, pickupOrder?: any, activityLogs: any[] = []) {
     const lineItems = Array.isArray(order.lineItems) ? order.lineItems : [];
     const designFiles = this.extractDesignFiles(lineItems);
     const isPickup = this.detectPickup(order);
@@ -173,6 +173,34 @@ export class OrdersService {
 
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+
+      // Manufacturing / Production Jobs
+      productionJobs: (order.productionJobs || []).map((job: any) => ({
+        id: job.id,
+        status: job.status,
+        printerId: job.printerId,
+        printerName: job.printer?.name,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        estimatedCompletionAt: job.estimatedCompletionAt,
+      })),
+
+      // Penpot Projects
+      linkedDesigns: (order.designProjects || []).map((p: any) => ({
+         id: p.id,
+         penpotProjectId: p.penpotProjectId,
+         title: p.title,
+         status: p.status,
+         previewUrl: p.thumbnailUrl,
+      })),
+
+      // Marketing / Notifications (Dittofeed)
+      activityLogs: activityLogs.map((log: any) => ({
+        id: log.id,
+        eventType: log.eventType.replace('dittofeed:', ''),
+        createdAt: log.createdAt,
+        payload: log.payload,
+      })),
     };
   }
 
@@ -288,13 +316,42 @@ export class OrdersService {
             shelf: true,
           },
         },
+        // Include production jobs to see manufacturing status
+        productionJobs: {
+          include: { printer: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+        // Include linked Penpot design projects
+        designProjects: true,
       },
     });
 
     if (!order) return null;
 
+    // Fetch related activity logs (Dittofeed events)
+    // Using simple query for now. Ideally JSON filter.
+    const activityLogs = await this.prisma.activityLog.findMany({
+      where: {
+        merchantId,
+        eventType: { startsWith: 'dittofeed:' },
+        // Simple string search in JSON payload if possible, or fetch more and filter in memory
+        // Direct JSON filtering depends on Prisma version and DB capabilities
+        // For safety, we fetch recent logs for this merchant and filter in-memory for this orderId
+        createdAt: { gte: order.createdAt }, // Optimization
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200, // Fetch chunk
+    });
+
+    // In-memory filter for orderId in payload
+    // Payload is JSON
+    const orderLogs = activityLogs.filter(log => {
+      const p = log.payload as any;
+      return p?.orderId === id || p?.properties?.orderId === id;
+    });
+
     const pickupOrder = (order as any).pickupOrders?.[0] || null;
-    return this.mapOrder(order, pickupOrder);
+    return this.mapOrder(order, pickupOrder, orderLogs);
   }
 
   // ===================================================

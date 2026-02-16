@@ -20,7 +20,7 @@ export const config = {
   cookieDomain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN || '',
   shopifyStoreHandle: process.env.NEXT_PUBLIC_SHOPIFY_STORE_HANDLE || '',
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || '',
-  brandName: process.env.NEXT_PUBLIC_BRAND_NAME || 'EAGLE SYSTEM',
+  brandName: process.env.NEXT_PUBLIC_BRAND_NAME || 'Techify Boost | Growth Sheriff',
   shopifyInstallUrl: process.env.NEXT_PUBLIC_SHOPIFY_INSTALL_URL || '',
   cdnUrl: (process.env.NEXT_PUBLIC_API_URL || '').replace('api.', 'cdn.'),
   shopifyAdminBaseUrl: `https://admin.shopify.com/store/${process.env.NEXT_PUBLIC_SHOPIFY_STORE_HANDLE || ''}`,

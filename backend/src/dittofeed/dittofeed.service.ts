@@ -213,6 +213,35 @@ export class DittofeedService implements OnModuleInit {
         event,
         properties,
       });
+
+      // Log to database for Admin UI visibility
+      // Try to find if userId matches a CompanyUser
+      let companyUserId: string | null = null;
+      let merchantId = properties.merchantId || properties.merchant_id; // Try to extract from props
+
+      // If userId is UUID-like, it might be a companyUserId
+      if (userId.length > 20 && !userId.includes('@')) {
+         companyUserId = userId;
+      }
+
+      // If merchantId is missing, we can't log easily without query,
+      // but let's assume we can skip merchantId strict check or leave it empty if schema allows?
+      // Schema says merchantId is String (required).
+
+      if (merchantId) {
+        await this.prisma.activityLog.create({
+          data: {
+            merchantId,
+            companyUserId, // Might be null if userId is email
+            eventType: `dittofeed:${event}`,
+            payload: { userId, properties } as any,
+            // Try to link to order if present
+             // We can't link directly to order relation as ActivityLog structure is loose,
+             // but payload will have orderId.
+          },
+        }).catch(() => {}); // Ignore logging errors to not block flow
+      }
+
     } catch (err: any) {
       const status = err.response?.status;
       const data = err.response?.data;
@@ -262,6 +291,7 @@ export class DittofeedService implements OnModuleInit {
   async trackOrderPlaced(orderData: {
     userId: string;
     orderId: string;
+    merchantId: string; // Required for logging
     orderNumber: string;
     totalPrice: number;
     financialStatus: string;
@@ -277,6 +307,7 @@ export class DittofeedService implements OnModuleInit {
 
     await this.trackEvent(orderData.userId, 'order_placed', {
       orderId: orderData.orderId,
+      merchantId: orderData.merchantId,
       orderNumber: orderData.orderNumber,
       totalPrice: orderData.totalPrice,
       financialStatus: orderData.financialStatus,
@@ -307,13 +338,14 @@ export class DittofeedService implements OnModuleInit {
   }
 
   /** Order fulfilled event */
-  async trackOrderFulfilled(userId: string, orderId: string, orderNumber: string, trackingInfo?: {
+  async trackOrderFulfilled(userId: string, orderId: string, orderNumber: string, merchantId: string, trackingInfo?: {
     trackingNumber?: string;
     trackingUrl?: string;
     carrier?: string;
   }) {
     await this.trackEvent(userId, 'order_fulfilled', {
       orderId,
+      merchantId,
       orderNumber,
       ...trackingInfo,
     });

@@ -255,6 +255,7 @@ export class ShippingService {
       'shipment_created',
       {
         orderId: request.orderId,
+        merchantId: request.merchantId, // Add merchantId for ActivityLog
         trackingNumber: bought.tracking_code,
         carrier: selectedRate.carrier,
         service: selectedRate.service,
@@ -498,23 +499,34 @@ export class ShippingService {
     // Fire Dittofeed event for delivery notifications
     if (['delivered', 'out_for_delivery', 'delivery_failed'].includes(internalStatus)) {
       try {
-        // Look up the order by tracking number to get real customer email
-        const orderForTracking = await this.prisma.orderLocal.findFirst({
-          where: { trackingNumber: trackingCode } as any,
-          select: { email: true },
-        });
-        const trackingUserId = orderForTracking?.email || `tracking_${trackingCode}`;
-        await this.dittofeed.trackEvent(
-          trackingUserId,
-          `shipment_${internalStatus}`,
-          {
-            trackingNumber: trackingCode,
-            status: internalStatus,
-            statusDetail,
-            carrier: event.carrier,
-            estimatedDelivery: event.est_delivery_date,
-          },
-        );
+        // Look up the order by tracking number using Raw Query for reliable JSON search in PostgreSQL
+        const orders = await this.prisma.$queryRaw`
+          SELECT id, email, merchant_id as "merchantId"
+          FROM "orders_local"
+          WHERE "fulfillments"::jsonb @> ('[{"trackingNumber": ' || ${JSON.stringify(trackingCode)} || '}]')::jsonb
+          LIMIT 1
+        ` as any[];
+
+        if (orders.length > 0) {
+            const orderForTracking = orders[0];
+            const trackingUserId = orderForTracking?.email || `tracking_${trackingCode}`;
+            const trackingMerchantId = orderForTracking?.merchantId || '';
+
+            if (trackingMerchantId) {
+                await this.dittofeed.trackEvent(
+                  trackingUserId,
+                  `shipment_${internalStatus}`,
+                  {
+                    trackingNumber: trackingCode,
+                    status: internalStatus,
+                    statusDetail,
+                    carrier: event.carrier,
+                    merchantId: trackingMerchantId,
+                    estimatedDelivery: event.est_delivery_date,
+                  },
+                );
+            }
+        }
       } catch (err: any) {
         this.logger.warn(`Dittofeed tracking event failed: ${err.message}`);
       }
@@ -660,7 +672,7 @@ export class ShippingService {
     const orders = await this.prisma.orderLocal.findMany({
       where: {
         merchantId,
-        fulfillmentStatus: { in: ['READY_TO_SHIP', 'READY_FOR_PICKUP'] },
+        fulfillmentStatus: { in: ['READY_TO_SHIP', 'READY_FOR_PICKUP', 'shipped'] },
       },
       select: {
         id: true,
@@ -669,12 +681,19 @@ export class ShippingService {
         shippingAddress: true,
         fulfillmentStatus: true,
         lineItems: true,
+        // Fetch raw data or fulfillments json to get tracking info
+        fulfillments: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: 50, // Limit to recent 50 to prevent overload
     });
 
     return orders.map(o => {
       const addr = o.shippingAddress as any || {};
+      // Extract latest fulfillment info
+      const fulfillments = (o.fulfillments as any[]) || [];
+      const latestFulfillment = fulfillments.length > 0 ? fulfillments[fulfillments.length - 1] : null;
+
       return {
         id: o.id,
         shopifyOrderNumber: o.shopifyOrderNumber,
@@ -685,8 +704,9 @@ export class ShippingService {
         zip: addr.zip || '',
         totalItems: Array.isArray(o.lineItems) ? o.lineItems.length : 0,
         status: o.fulfillmentStatus,
-        trackingNumber: null,
-        labelUrl: null,
+        trackingNumber: latestFulfillment?.tracking_number || null,
+        labelUrl: latestFulfillment?.label_url || null,
+        carrier: latestFulfillment?.service || null,
       };
     });
   }

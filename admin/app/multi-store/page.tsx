@@ -85,10 +85,26 @@ export default function MultiStorePage() {
                Last Sync: {new Date(store.lastSyncAt).toLocaleString()}
             </div>
 
-            <div className="flex gap-8">
-               <button className="btn-apple secondary sm" style={{ flex: 1 }}>Settings</button>
-               <button className="btn-apple secondary sm" style={{ flex: 1 }}>Sync Now</button>
-            </div>
+             <div className="flex gap-8">
+                <button
+                  className="btn-apple secondary sm"
+                  style={{ flex: 1 }}
+                  onClick={() => alert(`Opening settings for ${store.name}`)}
+                >
+                  Settings
+                </button>
+                <button
+                  className="btn-apple secondary sm"
+                  style={{ flex: 1 }}
+                  onClick={async () => {
+                    const res = await adminFetch(`/api/v1/multi-store/sync/${store.id}`, { method: 'POST' });
+                    if (res.ok) alert('Sync started!');
+                    else alert('Sync failed or endpoint not implemented');
+                  }}
+                >
+                  Sync Now
+                </button>
+             </div>
           </div>
         ))}
       </div>

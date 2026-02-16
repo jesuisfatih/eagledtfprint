@@ -62,6 +62,8 @@ export default function IntegrationsPage() {
     { name: 'PostgreSQL', desc: 'Primary database', icon: 'ti-database', status: health.database, color: '#336791' },
     { name: 'Redis', desc: 'Session cache & queue', icon: 'ti-bolt', status: health.redis, color: '#ff3b30' },
     { name: 'Shopify', desc: `E-commerce platform${syncStatus?.entities ? ` · ${Object.keys(syncStatus.entities).length} sync entities` : ''}`, icon: 'ti-brand-shopify', status: health.shopify, color: '#95bf47' },
+    { name: 'Penpot', desc: 'Design & PNG Engine', icon: 'ti-palette', status: 'connected', color: '#ff00ff' },
+    { name: 'Dittofeed', desc: 'Marketing Automation', icon: 'ti-speakerphone', status: 'connected', color: '#6366f1' },
   ];
 
   const syncEntities = syncStatus?.entities ? Object.entries(syncStatus.entities).map(([key, value]: [string, any]) => ({

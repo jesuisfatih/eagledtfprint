@@ -23,6 +23,18 @@ interface KanbanJob {
 
 type KanbanBoard = Record<string, KanbanJob[]>;
 
+interface Printer {
+  id: string;
+  name: string;
+  model: string;
+  status: 'IDLE' | 'PRINTING' | 'MAINTENANCE' | 'OFFLINE';
+  inkCyan?: number;
+  inkMagenta?: number;
+  inkYellow?: number;
+  inkBlack?: number;
+  inkWhite?: number;
+}
+
 const COLUMNS = [
   { id: 'QUEUED', title: 'Queued', icon: 'ti-list' },
   { id: 'PREPRESS', title: 'Pre-Press', icon: 'ti-edit' },
@@ -40,18 +52,20 @@ const COLUMNS = [
 
 export default function ProductionKanbanPage() {
   const [board, setBoard] = useState<KanbanBoard | null>(null);
+  const [printers, setPrinters] = useState<Printer[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const loadBoard = useCallback(async () => {
     try {
-      const res = await adminFetch('/api/v1/production/board');
-      if (res.ok) {
-        const data = await res.json();
-        setBoard(data);
-      }
+      const [boardRes, printersRes] = await Promise.all([
+        adminFetch('/api/v1/production/board'),
+        adminFetch('/api/v1/production/printers'),
+      ]);
+      if (boardRes.ok) setBoard(await boardRes.json());
+      if (printersRes.ok) setPrinters(await printersRes.json());
     } catch (err) {
-      console.error('Failed to load kanban board', err);
+      console.error('Failed to load production data', err);
     } finally {
       setLoading(false);
     }
@@ -75,6 +89,21 @@ export default function ProductionKanbanPage() {
       }
     } catch (err) {
       console.error('Failed to move job', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const assignPrinter = async (jobId: string, printerId: string) => {
+    setUpdatingId(jobId);
+    try {
+      const res = await adminFetch(`/api/v1/production/jobs/${jobId}/assign-printer`, {
+        method: 'PATCH',
+        body: JSON.stringify({ printerId }),
+      });
+      if (res.ok) loadBoard();
+    } catch (err) {
+      console.error('Failed to assign printer', err);
     } finally {
       setUpdatingId(null);
     }
@@ -122,6 +151,30 @@ export default function ProductionKanbanPage() {
         </div>
       </div>
 
+      {/* Printer Fleet Summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, marginBottom: 24 }}>
+        {printers.map(p => (
+           <div key={p.id} className="apple-card" style={{ padding: '12px 16px' }}>
+              <div className="flex justify-between items-center mb-8">
+                 <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
+                 <span style={{ fontSize: 10, fontWeight: 700, color: p.status === 'PRINTING' ? 'var(--accent-blue)' : 'var(--text-tertiary)' }}>
+                    ● {p.status}
+                 </span>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                 {[
+                   { c: 'cyan', v: p.inkCyan }, { c: 'magenta', v: p.inkMagenta },
+                   { c: 'yellow', v: p.inkYellow }, { c: 'black', v: p.inkBlack }, { c: 'white', v: p.inkWhite }
+                 ].map(i => (
+                    <div key={i.c} style={{ flex: 1, height: 24, background: 'var(--bg-primary)', borderRadius: 4, position: 'relative', overflow: 'hidden', border: '1px solid var(--border-secondary)' }}>
+                       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${i.v ?? 0}%`, background: i.c === 'white' ? '#ddd' : i.c }} />
+                    </div>
+                 ))}
+              </div>
+           </div>
+        ))}
+      </div>
+
       <div className="kanban-board">
         {COLUMNS.map((col) => {
           const jobs = board?.[col.id] || [];
@@ -159,12 +212,17 @@ export default function ProductionKanbanPage() {
                           <i className="ti ti-clock" />
                           <span>{job.waitingMinutes}m</span>
                         </div>
-                        {job.printer && (
-                          <div className="kanban-item-meta-item">
-                            <i className="ti ti-printer" />
-                            <span>{job.printer}</span>
-                          </div>
-                        )}
+                        <div className="kanban-item-meta-item">
+                           <i className="ti ti-printer" />
+                           <select
+                             value={job.printer || ''}
+                             onChange={(e) => assignPrinter(job.id, e.target.value)}
+                             style={{ background: 'none', border: 'none', fontSize: 12, color: 'inherit', fontWeight: 500, cursor: 'pointer', outline: 'none' }}
+                           >
+                             <option value="">Unassigned</option>
+                             {printers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                           </select>
+                        </div>
                       </div>
 
                       {/* Transition Actions */}
