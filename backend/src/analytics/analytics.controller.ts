@@ -1,7 +1,7 @@
-import { Controller, Get, Query, UseGuards, BadRequestException } from '@nestjs/common';
-import { AnalyticsService } from './analytics.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
 @UseGuards(JwtAuthGuard)
@@ -32,7 +32,8 @@ export class AnalyticsController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    return this.analyticsService.getTopProducts(merchantId, limit ? parseInt(limit) : 10);
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    return this.analyticsService.getTopProducts(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 10);
   }
 
   @Get('top-companies')
@@ -43,7 +44,7 @@ export class AnalyticsController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    return this.analyticsService.getTopCompanies(merchantId, limit ? parseInt(limit) : 10);
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    return this.analyticsService.getTopCompanies(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 10);
   }
 }
-

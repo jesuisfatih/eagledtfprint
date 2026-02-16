@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Delete, Body, Query, Param, UseGuards, BadRequestException } from '@nestjs/common';
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
-import { AbandonedCartsService } from './abandoned-carts.service';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { TrackCartDto, SyncCartDto, GetAbandonedCartsQueryDto } from './dto/abandoned-cart.dto';
+import { AbandonedCartsService } from './abandoned-carts.service';
+import { GetAbandonedCartsQueryDto, SyncCartDto, TrackCartDto } from './dto/abandoned-cart.dto';
 
 @Controller('abandoned-carts')
 export class AbandonedCartsController {
@@ -20,7 +20,7 @@ export class AbandonedCartsController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    
+
     return this.abandonedCartsService.getAbandonedCarts(merchantId, query.companyId, query.includeRecent);
   }
 
@@ -85,7 +85,8 @@ export class AbandonedCartsController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    return this.abandonedCartsService.getAllCartActivityLogs(merchantId, limit ? parseInt(limit) : 100);
+    const parsedLimit = limit ? parseInt(limit, 10) : 100;
+    return this.abandonedCartsService.getAllCartActivityLogs(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 100);
   }
 
   /**
@@ -114,4 +115,3 @@ export class AbandonedCartsController {
     return this.abandonedCartsService.deleteCart(id, merchantId);
   }
 }
-

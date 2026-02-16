@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { DittofeedService } from '../../dittofeed/dittofeed.service';
 import { PickupService } from '../../pickup/pickup.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ShopifyService } from '../../shopify/shopify.service';
@@ -13,6 +14,7 @@ export class OrdersHandler {
     private webhookSync: ShopifyWebhookSyncService,
     private shopifyService: ShopifyService,
     private pickupService: PickupService,
+    private dittofeedService: DittofeedService,
   ) {}
 
   async handleOrderCreate(orderData: any, headers: any) {
@@ -29,14 +31,17 @@ export class OrdersHandler {
       // Find company user by Shopify customer ID
       let companyId: string | undefined;
       let companyUserId: string | undefined;
+      let companyName: string | undefined;
 
       if (orderData.customer?.id) {
         const user = await this.prisma.companyUser.findFirst({
           where: { shopifyCustomerId: BigInt(orderData.customer.id) },
+          include: { company: { select: { name: true } } },
         });
         if (user) {
           companyUserId = user.id;
           companyId = user.companyId;
+          companyName = user.company.name;
         }
       }
 
@@ -87,7 +92,6 @@ export class OrdersHandler {
       // Extract risk level
       let riskLevel = 'normal';
       if (orderData.order_status_url) {
-        // Shopify includes fraud analysis in some orders
         const risks = orderData.risks || [];
         if (risks.length > 0) {
           const highRisk = risks.find((r: any) => r.recommendation === 'cancel');
@@ -137,6 +141,28 @@ export class OrdersHandler {
       // Sync cart status
       await this.webhookSync.handleOrderCreate(orderData, shop);
 
+      // ━━━ DITTOFEED: Real-time order_placed event ━━━
+      if (companyUserId) {
+        try {
+          await this.dittofeedService.trackOrderPlaced({
+            userId: companyUserId,
+            orderId: orderLocal.id,
+            orderNumber: orderData.order_number?.toString() || '',
+            totalPrice: parseFloat(orderData.total_price || '0'),
+            financialStatus: orderData.financial_status || '',
+            fulfillmentStatus: orderData.fulfillment_status || '',
+            companyId,
+            companyName,
+            lineItems: orderData.line_items || [],
+            currency: orderData.currency || 'USD',
+            email: orderData.email,
+          });
+          this.logger.log(`Dittofeed: order_placed event sent for order #${orderData.order_number}`);
+        } catch (dfErr: any) {
+          this.logger.warn(`Dittofeed event failed for order #${orderData.order_number}: ${dfErr.message}`);
+        }
+      }
+
       // Auto-create pickup order if it's a pickup order
       try {
         const pickupOrder = await this.pickupService.createFromWebhookOrder(
@@ -146,14 +172,26 @@ export class OrdersHandler {
         );
         if (pickupOrder) {
           this.logger.log(`Pickup order auto-created for order #${orderData.order_number}, QR: ${pickupOrder.qrCode}`);
+
+          // ━━━ DITTOFEED: pickup_ready event ━━━
+          if (companyUserId) {
+            try {
+              await this.dittofeedService.trackPickupReady(companyUserId, {
+                orderId: orderLocal.id,
+                orderNumber: orderData.order_number?.toString() || '',
+                qrCode: pickupOrder.qrCode,
+              });
+            } catch (dfErr: any) {
+              this.logger.warn(`Dittofeed pickup_ready event failed: ${dfErr.message}`);
+            }
+          }
         }
       } catch (pickupError) {
-        // Don't let pickup creation failure break the webhook
         this.logger.warn(`Failed to auto-create pickup order for #${orderData.order_number}`, pickupError);
       }
 
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Failed to handle order create', error);
       return { success: false, error: error.message };
     }
@@ -182,6 +220,25 @@ export class OrdersHandler {
           rawData: orderData,
         },
       });
+
+      // ━━━ DITTOFEED: order_paid event ━━━
+      if (orderData.customer?.id) {
+        const user = await this.prisma.companyUser.findFirst({
+          where: { shopifyCustomerId: BigInt(orderData.customer.id) },
+        });
+        if (user) {
+          try {
+            await this.dittofeedService.trackOrderPaid(
+              user.id,
+              orderData.id?.toString() || '',
+              orderData.order_number?.toString() || '',
+              parseFloat(orderData.total_price || '0'),
+            );
+          } catch (dfErr: any) {
+            this.logger.warn(`Dittofeed order_paid event failed: ${dfErr.message}`);
+          }
+        }
+      }
 
       this.logger.log(`Order paid: ${orderData.order_number}`);
       return { success: true };
@@ -236,6 +293,14 @@ export class OrdersHandler {
         }, 0);
       }, 0);
 
+      // ━━━ DITTOFEED: order_fulfilled / order_cancelled events ━━━
+      // Fetch existing order to compare refund amounts (avoid duplicate events)
+      const existingOrder = await this.prisma.orderLocal.findFirst({
+        where: { merchantId: merchant.id, shopifyOrderId: BigInt(orderData.id) },
+        select: { totalRefunded: true },
+      });
+      const previousRefunded = existingOrder?.totalRefunded ?? 0;
+
       await this.prisma.orderLocal.updateMany({
         where: {
           merchantId: merchant.id,
@@ -254,10 +319,50 @@ export class OrdersHandler {
           rawData: orderData,
         },
       });
+      if (orderData.customer?.id) {
+        const user = await this.prisma.companyUser.findFirst({
+          where: { shopifyCustomerId: BigInt(orderData.customer.id) },
+        });
+
+        if (user) {
+          try {
+            // Check if this update is a fulfillment
+            if (orderData.fulfillment_status === 'fulfilled' && fulfillments.length > 0) {
+              const latestFulfillment = fulfillments[fulfillments.length - 1];
+              await this.dittofeedService.trackOrderFulfilled(user.id, orderData.id?.toString() || '', orderData.order_number?.toString() || '', {
+                trackingNumber: latestFulfillment.trackingNumber,
+                trackingUrl: latestFulfillment.trackingUrl,
+                carrier: latestFulfillment.trackingCompany,
+              });
+            }
+
+            // Check if order was cancelled
+            if (orderData.cancelled_at) {
+              await this.dittofeedService.trackEvent(user.id, 'order_cancelled', {
+                orderId: orderData.id?.toString() || '',
+                orderNumber: orderData.order_number?.toString() || '',
+                cancelReason: orderData.cancel_reason || '',
+              });
+            }
+
+            // Check if there were NEW refunds (compare with previously stored amount)
+            if (totalRefunded > 0 && totalRefunded > Number(previousRefunded || 0)) {
+              await this.dittofeedService.trackEvent(user.id, 'order_refunded', {
+                orderId: orderData.id?.toString() || '',
+                orderNumber: orderData.order_number?.toString() || '',
+                refundAmount: totalRefunded,
+                newRefundAmount: totalRefunded - Number(previousRefunded || 0),
+              });
+            }
+          } catch (dfErr: any) {
+            this.logger.warn(`Dittofeed order update events failed: ${dfErr.message}`);
+          }
+        }
+      }
 
       this.logger.log(`Order updated: ${orderData.order_number}`);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Failed to handle order update', error);
       return { success: false };
     }

@@ -23,8 +23,8 @@ export class ProactiveOfferController {
     return this.offerService.getMerchantOffers(merchantId, {
       status,
       strategy,
-      limit: limit ? parseInt(limit) : undefined,
-      offset: offset ? parseInt(offset) : undefined,
+      limit: (() => { const n = limit ? parseInt(limit, 10) : undefined; return n !== undefined && Number.isFinite(n) ? n : undefined; })(),
+      offset: (() => { const n = offset ? parseInt(offset, 10) : undefined; return n !== undefined && Number.isFinite(n) ? n : undefined; })(),
     });
   }
 

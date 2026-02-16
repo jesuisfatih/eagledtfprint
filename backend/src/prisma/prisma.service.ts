@@ -181,6 +181,18 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return (this.prisma as any).marketingSync;
   }
 
+  get productionJob() {
+    return (this.prisma as any).productionJob;
+  }
+
+  get printer() {
+    return (this.prisma as any).printer;
+  }
+
+  get gangSheetBatch() {
+    return (this.prisma as any).gangSheetBatch;
+  }
+
   async onModuleInit() {
     try {
       await this.$connect();

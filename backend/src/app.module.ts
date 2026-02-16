@@ -25,16 +25,19 @@ import { FingerprintModule } from './fingerprint/fingerprint.module';
 import { InvoiceModule } from './invoices/invoices.module';
 import { MailModule } from './mail/mail.module';
 import { MerchantsModule } from './merchants/merchants.module';
+import { MultiStoreModule } from './multi-store/multi-store.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PenpotModule } from './penpot/penpot.module';
 import { PickupModule } from './pickup/pickup.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProductionModule } from './production/production.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { RedisModule } from './redis/redis.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { SettingsModule } from './settings/settings.module';
+import { ShippingModule } from './shipping/shipping.module';
 import { ShopifyCustomersModule } from './shopify-customers/shopify-customers.module';
 import { ShopifyModule } from './shopify/shopify.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
@@ -115,6 +118,9 @@ import { WishlistModule } from './wishlist/wishlist.module';
     PickupModule,
     PenpotModule,
     EventBusModule,
+    ProductionModule,
+    ShippingModule,
+    MultiStoreModule,
   ],
   controllers: [AppController],
   providers: [

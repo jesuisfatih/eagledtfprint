@@ -3,7 +3,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PenpotService } from './penpot.service';
 
-@Controller('api/v1/penpot')
+@Controller('penpot')
 @UseGuards(JwtAuthGuard)
 export class PenpotController {
   constructor(private readonly penpotService: PenpotService) {}

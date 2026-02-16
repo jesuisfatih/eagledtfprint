@@ -29,15 +29,15 @@ export class CatalogController {
       return this.catalogService.getProductsByCollection(
         merchantId,
         collection,
-        page ? parseInt(page) : 1,
-        limit ? parseInt(limit) : 20,
+        (() => { const n = page ? parseInt(page, 10) : 1; return Number.isFinite(n) ? n : 1; })(),
+        (() => { const n = limit ? parseInt(limit, 10) : 20; return Number.isFinite(n) ? n : 20; })(),
       );
     }
 
     return this.catalogService.getProducts(merchantId, {
       search,
-      page: page ? parseInt(page) : undefined,
-      limit: limit ? parseInt(limit) : undefined,
+      page: (() => { const n = page ? parseInt(page, 10) : undefined; return n !== undefined && Number.isFinite(n) ? n : undefined; })(),
+      limit: (() => { const n = limit ? parseInt(limit, 10) : undefined; return n !== undefined && Number.isFinite(n) ? n : undefined; })(),
       status,
       vendor,
       productType,
@@ -67,7 +67,8 @@ export class CatalogController {
     if (!query) {
       throw new BadRequestException('Search query required');
     }
-    return this.catalogService.searchProducts(merchantId, query, limit ? parseInt(limit) : 20);
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    return this.catalogService.searchProducts(merchantId, query, Number.isFinite(parsedLimit) ? parsedLimit : 20);
   }
 
   @Get('products/:id')

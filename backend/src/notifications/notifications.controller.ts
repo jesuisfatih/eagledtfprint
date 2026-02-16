@@ -1,18 +1,18 @@
-import { 
-  Controller, 
-  Get, 
-  Put, 
-  Post,
-  Delete,
-  Param, 
-  Query,
-  Body,
-  UseGuards, 
-  BadRequestException 
+import {
+    BadRequestException,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Post,
+    Put,
+    Query,
+    UseGuards
 } from '@nestjs/common';
-import { NotificationsService, NotificationFilters, NotificationPreferences } from './notifications.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { NotificationFilters, NotificationPreferences, NotificationsService } from './notifications.service';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -38,8 +38,8 @@ export class NotificationsController {
     const filters: NotificationFilters = {};
     if (type) filters.type = type as NotificationFilters['type'];
     if (isRead !== undefined) filters.isRead = isRead === 'true';
-    if (limit) filters.limit = parseInt(limit, 10);
-    if (offset) filters.offset = parseInt(offset, 10);
+    if (limit) { const n = parseInt(limit, 10); filters.limit = Number.isFinite(n) ? n : undefined; }
+    if (offset) { const n = parseInt(offset, 10); filters.offset = Number.isFinite(n) ? n : undefined; }
 
     return this.notificationsService.getNotifications(userId, companyId, filters);
   }
@@ -145,4 +145,3 @@ export class NotificationsController {
     return this.notificationsService.deleteNotification(id, userId);
   }
 }
-

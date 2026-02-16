@@ -58,6 +58,9 @@ model Merchant {
   customerLists  CustomerList[]
   designProjects DesignProject[]
   marketingSyncs MarketingSync[]
+  productionJobs ProductionJob[]
+  printers       Printer[]
+  gangSheetBatches GangSheetBatch[]
 
   @@index([shopDomain])
   @@index([status])
@@ -673,6 +676,7 @@ model OrderLocal {
   invoices     Invoice[]
   pickupOrders PickupOrder[]
   designProjects DesignProject[]
+  productionJobs ProductionJob[]
 
   @@unique([merchantId, shopifyOrderId])
   @@index([merchantId])
@@ -1666,6 +1670,7 @@ model DesignProject {
   order       OrderLocal?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
   company     Company?     @relation(fields: [companyId], references: [id])
   companyUser CompanyUser? @relation(fields: [companyUserId], references: [id])
+  productionJobs ProductionJob[]
 
   @@index([merchantId])
   @@index([orderId])
@@ -1703,4 +1708,194 @@ model MarketingSync {
   @@index([entityType])
   @@index([syncStatus])
   @@map("marketing_syncs")
+}
+
+// ============================================
+// PRODUCTION PIPELINE (Factory Floor Kanban)
+// ============================================
+
+model ProductionJob {
+  id              String   @id @default(uuid())
+  merchantId      String   @map("merchant_id")
+  orderId         String   @map("order_id")
+  designProjectId String?  @map("design_project_id")
+
+  // Production pipeline
+  status          ProductionStatus @default(QUEUED)
+  priority        ProductionPriority @default(STANDARD)
+
+  // Assignment
+  printerId       String?  @map("printer_id")
+  operatorId      String?  @map("operator_id")
+  operatorName    String?  @map("operator_name")
+
+  // Gang sheet info
+  gangSheetBatchId String?  @map("gang_sheet_batch_id")
+  gangSheetPosition Int?    @map("gang_sheet_position")
+
+  // Dimensions (from order line item)
+  widthInch       Float    @map("width_inch")
+  heightInch      Float    @map("height_inch")
+  areaSquareInch  Float?   @map("area_square_inch") // auto-calculated
+
+  // Product details
+  productType     String   @map("product_type")    // dtf, uv_dtf, glitter, glow
+  quantity        Int      @default(1)
+  designFileUrl   String?  @map("design_file_url")
+
+  // Quality
+  dpi             Int?     // expected print DPI
+  dpiValidated    Boolean  @default(false) @map("dpi_validated")
+  qcNotes         String?  @map("qc_notes")
+  qcResult        String?  @map("qc_result")       // pass, fail, conditional
+
+  // Timing — tracks each phase transition
+  queuedAt        DateTime @default(now()) @map("queued_at")
+  prepressStartAt DateTime? @map("prepress_start_at")
+  printStartAt    DateTime? @map("print_start_at")
+  cureStartAt     DateTime? @map("cure_start_at")
+  cutStartAt      DateTime? @map("cut_start_at")
+  qcStartAt       DateTime? @map("qc_start_at")
+  qcPassAt        DateTime? @map("qc_pass_at")
+  packagingStartAt DateTime? @map("packaging_start_at")
+  readyAt         DateTime? @map("ready_at")
+  completedAt     DateTime? @map("completed_at")
+
+  // Estimated
+  estimatedPrintMinutes Int?      @map("estimated_print_minutes")
+  estimatedReadyAt      DateTime? @map("estimated_ready_at")
+
+  // Metadata
+  notes           String?
+  metadata        Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant       Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  order          OrderLocal       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  designProject  DesignProject?   @relation(fields: [designProjectId], references: [id])
+  printer        Printer?         @relation(fields: [printerId], references: [id])
+  gangSheetBatch GangSheetBatch?  @relation(fields: [gangSheetBatchId], references: [id])
+
+  @@index([merchantId])
+  @@index([orderId])
+  @@index([status])
+  @@index([priority])
+  @@index([printerId])
+  @@index([queuedAt])
+  @@index([readyAt])
+  @@map("production_jobs")
+}
+
+model Printer {
+  id          String  @id @default(uuid())
+  merchantId  String  @map("merchant_id")
+  name        String
+  model       String  @map("printer_model")
+  maxWidthInch Float  @map("max_width_inch")
+  status      PrinterStatus @default(IDLE)
+
+  // Ink levels (percentage 0-100)
+  inkCyan     Int?    @map("ink_cyan")
+  inkMagenta  Int?    @map("ink_magenta")
+  inkYellow   Int?    @map("ink_yellow")
+  inkBlack    Int?    @map("ink_black")
+  inkWhite    Int?    @map("ink_white")
+
+  // Supported product types
+  supportedTypes String[] @map("supported_types") // ["dtf", "uv_dtf", "glitter", "glow"]
+
+  // Stats
+  totalPrintsToday Int @default(0) @map("total_prints_today")
+  totalPrintsAll   Int @default(0) @map("total_prints_all")
+  totalSqftToday   Float @default(0) @map("total_sqft_today")
+  totalSqftAll     Float @default(0) @map("total_sqft_all")
+
+  // Maintenance
+  lastMaintenanceAt DateTime? @map("last_maintenance_at")
+  nextMaintenanceAt DateTime? @map("next_maintenance_at")
+  maintenanceNotes  String?   @map("maintenance_notes")
+
+  // Location in factory
+  location    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  jobs     ProductionJob[]
+
+  @@index([merchantId])
+  @@index([status])
+  @@map("printers")
+}
+
+model GangSheetBatch {
+  id            String @id @default(uuid())
+  merchantId    String @map("merchant_id")
+
+  // Dimensions
+  sheetWidth    Float  @map("sheet_width")   // inches (e.g., 22)
+  sheetHeight   Float  @map("sheet_height")  // inches (e.g., 24)
+
+  // Utilization
+  fillRate      Float  @map("fill_rate")     // 0.0 - 1.0
+  usedArea      Float  @default(0) @map("used_area")    // sq inches used
+  totalArea     Float  @default(0) @map("total_area")   // total sq inches available
+  wasteArea     Float  @default(0) @map("waste_area")   // sq inches wasted
+
+  // Status
+  status        String @default("nesting") // nesting, ready, printing, done
+
+  // Multi-order nesting (factory-side optimization)
+  isMultiOrder  Boolean @default(false) @map("is_multi_order")
+  orderCount    Int     @default(1) @map("order_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  jobs     ProductionJob[]
+
+  @@index([merchantId])
+  @@index([status])
+  @@index([fillRate])
+  @@map("gang_sheet_batches")
+}
+
+// ============================================
+// PRODUCTION ENUMS
+// ============================================
+
+enum ProductionStatus {
+  QUEUED
+  PREPRESS
+  PRINTING
+  CURING
+  CUTTING
+  QC_CHECK
+  PACKAGING
+  READY
+  PICKED_UP
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductionPriority {
+  STANDARD
+  RUSH
+  SAME_DAY
+  NEXT_DAY
+}
+
+enum PrinterStatus {
+  IDLE
+  PRINTING
+  MAINTENANCE
+  OFFLINE
 }

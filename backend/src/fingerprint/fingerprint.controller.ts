@@ -174,7 +174,7 @@ export class FingerprintController {
       companyId,
       companyUserId,
       fingerprintId,
-      limit: limit ? parseInt(limit) : undefined,
+      limit: (() => { const n = limit ? parseInt(limit, 10) : undefined; return n !== undefined && Number.isFinite(n) ? n : undefined; })(),
     });
   }
 

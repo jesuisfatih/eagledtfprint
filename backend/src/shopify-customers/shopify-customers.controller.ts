@@ -49,7 +49,8 @@ export class ShopifyCustomersController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    return this.customerIntelligence.getAtRiskCustomers(merchantId, limit ? parseInt(limit) : 50);
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    return this.customerIntelligence.getAtRiskCustomers(merchantId, Number.isFinite(parsedLimit) ? parsedLimit : 50);
   }
 
   @Get('insights/segment/:segment')
@@ -61,7 +62,8 @@ export class ShopifyCustomersController {
     if (!merchantId) {
       throw new BadRequestException('Merchant ID required');
     }
-    return this.customerIntelligence.getCustomersBySegment(merchantId, segment, limit ? parseInt(limit) : 50);
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    return this.customerIntelligence.getCustomersBySegment(merchantId, segment, Number.isFinite(parsedLimit) ? parsedLimit : 50);
   }
 
   @Post('insights/calculate')
