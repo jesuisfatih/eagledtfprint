@@ -56,7 +56,7 @@ jobs:
             set -e
 
             # Login to GHCR
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u jesuisfatih --password-stdin
+            docker login ghcr.io -u jesuisfatih -p ${{ secrets.GHCR_TOKEN }}
 
             # Pull image from GHCR
             docker pull ghcr.io/jesuisfatih/eagledtfprint-app:latest || {
